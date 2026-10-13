@@ -78,6 +78,15 @@
       color: inherit;
     }
 
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 11px;
+      object-fit: cover;
+      flex-shrink: 0;
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
     .brand-icon {
       font-size: 2rem;
       filter: drop-shadow(0 0 12px var(--primary-glow));
@@ -706,13 +715,17 @@
     .toast { opacity: 0; visibility: hidden; pointer-events: none; transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s; }
     .toast.show { opacity: 1; visibility: visible; }
 
+    .network-pill, .header-actions, .header-actions .btn, #liveStatus, .brand-sub { white-space: nowrap; }
+    .header-actions { flex-shrink: 0; }
+    @media (max-width: 1420px) { .network-pill { display: none; } }
+
     /* Phone layout: nothing may be wider than the screen */
     html, body { max-width: 100%; overflow-x: hidden; }
 
-    @media (max-width: 720px) {
+    @media (max-width: 900px) {
       header { padding: 0.65rem 1rem; }
       .nav-container { flex-wrap: wrap; gap: 0.6rem; }
-      .brand-icon { font-size: 1.6rem; }
+      .brand-logo { width: 36px; height: 36px; border-radius: 9px; }
       .brand-title { font-size: 1.15rem; }
       .brand-sub { display: none; }
       .network-pill { display: none; }
@@ -743,7 +756,7 @@
   <header>
     <div class="nav-container">
       <div class="brand">
-        <span class="brand-icon">🥒</span>
+        <img class="brand-logo" src="assets/logo-96.png" srcset="assets/logo-96.png 1x, assets/logo-192.png 2x" width="44" height="44" alt="PicklePots logo">
         <div>
           <span class="brand-title">PicklePots</span>
           <div class="brand-sub">KING OF THE JAR • PICKLE CHAIN L2</div>
@@ -983,7 +996,7 @@
     function setLiveBadge() {
       const el = document.getElementById("liveStatus");
       if (!el) return;
-      el.innerText = liveOk ? "● LIVE · Pickle Chain testnet" : "● Offline · retrying…";
+      el.innerText = liveOk ? "● LIVE · testnet" : "● Offline · retrying…";
       el.style.color = liveOk ? "#22c55e" : "#f59e0b";
     }
 
