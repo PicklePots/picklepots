@@ -702,6 +702,40 @@
     .toast.show {
       transform: translateY(0);
     }
+
+    .toast { opacity: 0; visibility: hidden; pointer-events: none; transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s; }
+    .toast.show { opacity: 1; visibility: visible; }
+
+    /* Phone layout: nothing may be wider than the screen */
+    html, body { max-width: 100%; overflow-x: hidden; }
+
+    @media (max-width: 720px) {
+      header { padding: 0.65rem 1rem; }
+      .nav-container { flex-wrap: wrap; gap: 0.6rem; }
+      .brand-icon { font-size: 1.6rem; }
+      .brand-title { font-size: 1.15rem; }
+      .brand-sub { display: none; }
+      .network-pill { display: none; }
+      .header-actions {
+        flex-wrap: wrap;
+        width: 100%;
+        gap: 0.5rem;
+      }
+      .header-actions #liveStatus { width: 100%; }
+      .header-actions .btn { flex: 1 1 auto; }
+      main { padding: 1rem 0.9rem; }
+      .toast {
+        left: 0.75rem;
+        right: 0.75rem;
+        bottom: 1rem;
+        padding: 0.75rem 1rem;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .tier-card { padding: 0.7rem 0.75rem; }
+      .tier-title { font-size: 0.85rem; }
+    }
   </style>
 </head>
 <body>
