@@ -716,6 +716,7 @@
       </div>
 
       <div class="header-actions">
+        <span id="liveStatus" style="font-family:var(--font-mono); font-size:0.7rem; color:#f59e0b;">● connecting…</span>
         <button class="btn btn-secondary btn-sm" onclick="addPickleNetwork()">🦊 Switch to Pickle</button>
         <a class="btn btn-secondary btn-sm" href="https://faucet.picklechain.xyz" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">🚰 Get Test ETH</a>
         <button class="btn btn-primary btn-sm" id="connectWalletBtn" onclick="toggleWallet()">Connect Wallet</button>
@@ -869,12 +870,77 @@
     let isConnected = false;
     let userBalance = 0.0;
 
-    let tierStates = [
-      { roundId: 1, potAmount: 0.0001, leader: "0x903d...35eb", timeLeftMs: 25000, totalBids: 1, kingHeld: 0, picklesCount: 1 },
-      { roundId: 1, potAmount: 0.0005, leader: null, timeLeftMs: 30000, totalBids: 0, kingHeld: 0, picklesCount: 0 },
-      { roundId: 1, potAmount: 0.0020, leader: null, timeLeftMs: 45000, totalBids: 0, kingHeld: 0, picklesCount: 0 },
-      { roundId: 1, potAmount: 0.0200, leader: null, timeLeftMs: 60000, totalBids: 0, kingHeld: 0, picklesCount: 0 }
-    ];
+    // Live state, read from the contract via eth_call (never simulated).
+    let tierStates = TIERS.map(() => ({
+      loaded: false, roundId: 0, potAmount: 0, leader: null, timeLeftMs: 0,
+      totalBids: 0, isExpired: false, fetchedAt: 0, kingSince: 0
+    }));
+    let liveOk = false;
+
+    const GET_ROUND_SELECTOR = "0xb4e5a830";
+
+    async function rpc(method, params) {
+      const res = await fetch(PICKLE_RPC_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        signal: AbortSignal.timeout(6000)
+      });
+      if (!res.ok) throw new Error("RPC " + res.status);
+      const j = await res.json();
+      if (j.error) throw new Error(j.error.message || "RPC error");
+      return j.result;
+    }
+
+    // getRound returns (roundId, pot, leader, deadline, totalBids, timeLeft, isExpired, tierName, minBid)
+    function decodeRound(hex) {
+      const w = hex.slice(2).match(/.{64}/g);
+      return {
+        roundId: Number(BigInt("0x" + w[0])),
+        potAmount: Number(BigInt("0x" + w[1])) / 1e18,
+        leader: "0x" + w[2].slice(24),
+        totalBids: Number(BigInt("0x" + w[4])),
+        timeLeftMs: Number(BigInt("0x" + w[5])) * 1000,
+        isExpired: BigInt("0x" + w[6]) === 1n
+      };
+    }
+
+    async function fetchRound(tierId) {
+      const data = GET_ROUND_SELECTOR + tierId.toString(16).padStart(64, "0");
+      const out = await rpc("eth_call", [{ to: CONTRACT_ADDRESS, data }, "latest"]);
+      const r = decodeRound(out);
+      const s = tierStates[tierId];
+      const prevLeader = s.leader;
+      const hasLeader = r.leader !== "0x0000000000000000000000000000000000000000";
+      s.roundId = r.roundId;
+      s.potAmount = r.potAmount;
+      s.leader = hasLeader ? r.leader : null;
+      s.totalBids = r.totalBids;
+      s.timeLeftMs = r.timeLeftMs;
+      s.isExpired = r.isExpired;
+      s.fetchedAt = Date.now();
+      if (s.leader !== prevLeader) s.kingSince = s.leader ? Date.now() : 0;
+      s.loaded = true;
+    }
+
+    async function refreshAll() {
+      try {
+        await Promise.all(TIERS.map(t => fetchRound(t.id)));
+        liveOk = true;
+      } catch (e) {
+        liveOk = false;
+        console.warn("live read failed", e);
+      }
+      setLiveBadge();
+      updateTierUI();
+    }
+
+    function setLiveBadge() {
+      const el = document.getElementById("liveStatus");
+      if (!el) return;
+      el.innerText = liveOk ? "● LIVE · Pickle Chain testnet" : "● Offline · retrying…";
+      el.style.color = liveOk ? "#22c55e" : "#f59e0b";
+    }
 
     function selectTier(tId) {
       currentTier = tId;
@@ -884,6 +950,10 @@
       updateTierUI();
     }
 
+    function remainingMs(s) {
+      return Math.max(0, s.timeLeftMs - (Date.now() - s.fetchedAt));
+    }
+
     function updateTierUI() {
       const tier = TIERS[currentTier];
       const state = tierStates[currentTier];
@@ -891,42 +961,64 @@
       document.getElementById('activeTierName').innerText = tier.name;
       document.getElementById('minBidLabel').innerText = tier.minBid + " ETH";
       document.getElementById('tierPaceLabel').innerText = tier.pace;
-      document.getElementById('bidAmountInput').value = tier.minBid;
-      document.getElementById('bidAmountInput').min = tier.minBid;
-      document.getElementById('bidAmountInput').step = (tier.minBid / 2).toString();
+      const input = document.getElementById('bidAmountInput');
+      if (input.dataset.tier !== String(currentTier)) {
+        input.dataset.tier = String(currentTier);
+        input.value = tier.minBid;
+        const presetGrid = document.getElementById('presetGrid');
+        presetGrid.innerHTML = '';
+        tier.presets.forEach((amt, idx) => {
+          const btn = document.createElement('button');
+          btn.className = 'preset-btn' + (idx === 0 ? ' active' : '');
+          btn.innerText = amt + ' ETH';
+          btn.onclick = () => {
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            input.value = amt;
+          };
+          presetGrid.appendChild(btn);
+        });
+      }
+      input.min = tier.minBid;
+      input.step = (tier.minBid / 2).toString();
 
-      const presetGrid = document.getElementById('presetGrid');
-      presetGrid.innerHTML = '';
-      tier.presets.forEach((amt, idx) => {
-        const btn = document.createElement('button');
-        btn.className = 'preset-btn' + (idx === 0 ? ' active' : '');
-        btn.innerText = amt + ' ETH';
-        btn.onclick = () => {
-          document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          document.getElementById('bidAmountInput').value = amt;
-        };
-        presetGrid.appendChild(btn);
-      });
-
-      document.getElementById('roundNumber').innerText = state.roundId;
-      document.getElementById('potDisplay').innerText = state.potAmount.toFixed(4) + " ETH";
-      document.getElementById('potUsdDisplay').innerText = "≈ $" + (state.potAmount * 2500).toFixed(2) + " USD";
-      document.getElementById('kingAddress').innerText = state.leader ? (state.leader.slice(0,6) + "..." + state.leader.slice(-4)) : "No King Yet (Be First!)";
-      document.getElementById('kingTimeHeld').innerText = state.kingHeld + "s";
-      document.getElementById('totalRoundBids').innerText = state.totalBids;
+      document.getElementById('roundNumber').innerText = state.loaded ? state.roundId : "–";
+      document.getElementById('potDisplay').innerText = state.loaded ? state.potAmount.toFixed(4) + " ETH" : "…";
+      document.getElementById('potUsdDisplay').innerText = "Testnet ETH · no cash value";
+      document.getElementById('kingAddress').innerText = !state.loaded ? "Loading…" :
+        (state.leader ? (state.leader.slice(0,6) + "..." + state.leader.slice(-4)) : "No King Yet (Be First!)");
+      document.getElementById('totalRoundBids').innerText = state.loaded ? state.totalBids : "–";
       document.getElementById('winnerEstimate').innerText = (state.potAmount * 0.9).toFixed(4) + " ETH";
-
+      renderTimer();
       updateBrineFillLevel();
+    }
+
+    function renderTimer() {
+      const s = tierStates[currentTier];
+      const el = document.getElementById('timerDisplay');
+      if (!s.loaded) { el.innerText = "--:--.-"; return; }
+      if (s.totalBids === 0) {
+        el.innerText = "OPEN";
+        el.classList.remove('urgent');
+        return;
+      }
+      const ms = remainingMs(s);
+      const totalSecs = ms / 1000;
+      const mins = Math.floor(totalSecs / 60);
+      const secs = Math.floor(totalSecs % 60);
+      const dec = Math.floor((ms % 1000) / 100);
+      el.innerText = ms === 0 ? "ENDED" : `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}.${dec}`;
+      if (totalSecs <= 5.0 && ms > 0) el.classList.add('urgent');
+      else el.classList.remove('urgent');
     }
 
     function updateBrineFillLevel() {
       const tier = TIERS[currentTier];
       const state = tierStates[currentTier];
-      const elapsedRatio = Math.max(0, Math.min(1, 1 - (state.timeLeftMs / tier.maxTimer)));
+      const elapsedRatio = state.loaded && state.totalBids > 0
+        ? Math.max(0, Math.min(1, 1 - (remainingMs(state) / tier.maxTimer))) : 0;
       const fillPercentage = Math.round(25 + (elapsedRatio * 63));
-      const brine = document.getElementById('brineLiquid');
-      brine.style.height = fillPercentage + '%';
+      document.getElementById('brineLiquid').style.height = fillPercentage + '%';
     }
 
     function animatePickleDrop(isUser = true) {
@@ -938,25 +1030,18 @@
       fallingPickle.innerText = currentTier === 0 ? '🍸' : '🥒';
       jarWrapper.appendChild(fallingPickle);
 
-      setTimeout(() => {
-        createSplashEffect(jarWrapper);
-      }, 500);
+      setTimeout(() => { createSplashEffect(jarWrapper); }, 500);
 
       setTimeout(() => {
         fallingPickle.remove();
-        const state = tierStates[currentTier];
-        state.picklesCount += 1;
-        
         const swimmingPickle = document.createElement('span');
         swimmingPickle.className = 'jar-pickle';
         swimmingPickle.innerText = currentTier === 0 ? '🍸' : '🥒';
-        
-        const randX = Math.floor(15 + Math.random() * 60);
-        const randY = Math.floor(15 + Math.random() * 55);
-        swimmingPickle.style.left = randX + '%';
-        swimmingPickle.style.bottom = randY + 'px';
+
+        swimmingPickle.style.left = Math.floor(15 + Math.random() * 60) + '%';
+        swimmingPickle.style.bottom = Math.floor(15 + Math.random() * 55) + 'px';
         swimmingPickle.style.animationDelay = (Math.random() * 2) + 's';
-        
+
         picklesLayer.appendChild(swimmingPickle);
         if (picklesLayer.children.length > 8) {
           picklesLayer.firstElementChild.remove();
@@ -975,15 +1060,12 @@
         drop.className = 'splash-particle';
         drop.style.left = '50%';
         drop.style.top = splashTop + 'px';
-        
+
         const angle = (Math.PI / 8) * i + Math.PI;
         const dist = 25 + Math.random() * 20;
-        const dx = Math.cos(angle) * dist + 'px';
-        const dy = (Math.sin(angle) * dist - 20) + 'px';
-        
-        drop.style.setProperty('--dx', dx);
-        drop.style.setProperty('--dy', dy);
-        
+        drop.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+        drop.style.setProperty('--dy', (Math.sin(angle) * dist - 20) + 'px');
+
         parent.appendChild(drop);
         setTimeout(() => drop.remove(), 600);
       }
@@ -1002,20 +1084,27 @@
       const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
       const item = document.createElement('div');
       item.className = 'log-item';
-      item.innerHTML = `
-        <div>
-          <span class="log-badge ${badgeClass}">${badgeText}</span>
-          <span style="font-weight:700; margin-left:0.4rem; color:var(--text-main);">${title}</span>
-          <div style="font-size:0.7rem; color:#64748b; margin-top:0.15rem;">${subtitle}</div>
-        </div>
-        <div style="color:#64748b; font-size:0.75rem;">${timeStr}</div>
-      `;
+      const left = document.createElement('div');
+      const badge = document.createElement('span');
+      badge.className = 'log-badge ' + badgeClass;
+      badge.textContent = badgeText;
+      const t = document.createElement('span');
+      t.style.cssText = 'font-weight:700; margin-left:0.4rem; color:var(--text-main);';
+      t.textContent = title;
+      const sub = document.createElement('div');
+      sub.style.cssText = 'font-size:0.7rem; color:#64748b; margin-top:0.15rem;';
+      sub.textContent = subtitle;
+      left.append(badge, t, sub);
+      const time = document.createElement('div');
+      time.style.cssText = 'color:#64748b; font-size:0.75rem;';
+      time.textContent = timeStr;
+      item.append(left, time);
       feed.insertBefore(item, feed.firstChild);
     }
 
     function clearFeed() {
       document.getElementById('feedLogs').innerHTML = '';
-      addLogItem('badge-bid', 'IDLE', 'PicklePots live at 0xe971...e589', 'Sequencer fast-path active');
+      addLogItem('badge-bid', 'IDLE', 'PicklePots live at 0xe971...e589', 'Reading rounds from Pickle Chain');
     }
 
     async function addPickleNetwork() {
@@ -1040,47 +1129,58 @@
       }
     }
 
+    async function ensurePickleChain() {
+      const cur = await window.ethereum.request({ method: 'eth_chainId' });
+      if (cur && cur.toLowerCase() === PICKLE_CHAIN_ID_HEX) return;
+      try {
+        await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: PICKLE_CHAIN_ID_HEX }] });
+      } catch (e) {
+        await addPickleNetwork();
+        const again = await window.ethereum.request({ method: 'eth_chainId' });
+        if (!again || again.toLowerCase() !== PICKLE_CHAIN_ID_HEX) throw new Error("Switch your wallet to Pickle Chain (78270)");
+      }
+    }
+
     async function toggleWallet() {
       const btn = document.getElementById('connectWalletBtn');
-      if (window.ethereum) {
-        try {
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          if (accounts && accounts.length > 0) {
-            userAddress = accounts[0];
-            isConnected = true;
-            btn.innerText = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
-            btn.className = "btn btn-secondary btn-sm";
-            await refreshBalance();
-            showToast("Connected: " + userAddress.slice(0,6));
-            addLogItem('badge-crown', 'CONNECTED', `Wallet ${userAddress.slice(0,8)}...`, 'Live on Pickle Chain');
-            return;
-          }
-        } catch (e) {
-          console.warn(e);
-        }
+      if (!window.ethereum) {
+        showToast("🦊 Install a Web3 wallet (e.g. MetaMask) to play");
+        return;
       }
-      if (!isConnected) {
-        userAddress = "0x903d2AD79bBa6BB121FdF2102cA80469C6b735eb";
-        isConnected = true;
-        btn.innerText = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
-        btn.className = "btn btn-secondary btn-sm";
-        userBalance = 1.0;
-        document.getElementById('userBalanceText').innerText = userBalance.toFixed(3) + " ETH";
-        showToast("Dev Wallet Connected");
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (accounts && accounts.length > 0) {
+          userAddress = accounts[0];
+          isConnected = true;
+          btn.innerText = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+          btn.className = "btn btn-secondary btn-sm";
+          await ensurePickleChain();
+          await refreshBalance();
+          showToast("Connected: " + userAddress.slice(0,6));
+          addLogItem('badge-crown', 'CONNECTED', `Wallet ${userAddress.slice(0,8)}...`, 'Pickle Chain testnet');
+        }
+      } catch (e) {
+        showToast(e.message || "Wallet connection failed");
       }
     }
 
     async function refreshBalance() {
-      if (window.ethereum && userAddress) {
+      if (userAddress) {
         try {
-          const balHex = await window.ethereum.request({
-            method: 'eth_getBalance',
-            params: [userAddress, 'latest']
-          });
-          userBalance = parseInt(balHex, 16) / 1e18;
+          const balHex = await rpc('eth_getBalance', [userAddress, 'latest']);
+          userBalance = Number(BigInt(balHex)) / 1e18;
           document.getElementById('userBalanceText').innerText = userBalance.toFixed(4) + " ETH";
         } catch(e) {}
       }
+    }
+
+    async function waitForReceipt(hash) {
+      for (let i = 0; i < 60; i++) {
+        const r = await rpc('eth_getTransactionReceipt', [hash]).catch(() => null);
+        if (r) return r;
+        await new Promise(res => setTimeout(res, 500));
+      }
+      return null;
     }
 
     async function placeBid() {
@@ -1092,90 +1192,66 @@
         showToast("⚠️ Minimum bid for this tier is " + tier.minBid + " ETH");
         return;
       }
-
-      animatePickleDrop(true);
-
-      if (window.ethereum && isConnected && userAddress) {
-        try {
-          const weiValue = "0x" + BigInt(Math.round(amount * 1e18)).toString(16);
-          const tierHex = currentTier.toString(16).padStart(64, '0');
-          const data = "0x5187338c" + tierHex;
-
-          showToast("Sending tx to Pickle Chain...");
-          const txHash = await window.ethereum.request({
-            method: 'eth_sendTransaction',
-            params: [{
-              from: userAddress,
-              to: CONTRACT_ADDRESS,
-              value: weiValue,
-              data: data
-            }]
-          });
-
-          showToast("🥒 Pickle Dropped! Tx: " + txHash.slice(0, 10) + "...");
-          addLogItem('badge-crown', 'TX MINED', `Bid ${amount} ETH on ${tier.name}`, `Tx: ${txHash.slice(0,14)}...`);
-          
-          const s = tierStates[currentTier];
-          s.potAmount += amount;
-          s.leader = userAddress;
-          s.totalBids += 1;
-          s.timeLeftMs = Math.min(tier.maxTimer, s.timeLeftMs + 15000);
-          updateTierUI();
-          return;
-        } catch (err) {
-          console.error(err);
-          showToast("Tx: " + (err.message || err));
-        }
+      if (!isConnected || !userAddress) {
+        showToast("Connect your wallet first");
+        return;
       }
 
-      const s = tierStates[currentTier];
-      s.potAmount += amount;
-      s.leader = userAddress || "0x903d...35eb";
-      s.totalBids += 1;
-      s.timeLeftMs = Math.min(tier.maxTimer, s.timeLeftMs + 15000);
-      updateTierUI();
-      showToast("🥒 Pickle Dropped in " + tier.name);
+      try {
+        await ensurePickleChain();
+        const weiValue = "0x" + BigInt(Math.round(amount * 1e18)).toString(16);
+        const data = "0x5187338c" + currentTier.toString(16).padStart(64, '0');
+
+        showToast("Confirm the bid in your wallet…");
+        const txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [{ from: userAddress, to: CONTRACT_ADDRESS, value: weiValue, data }]
+        });
+        showToast("Bid sent · waiting for confirmation…");
+        const receipt = await waitForReceipt(txHash);
+        if (receipt && receipt.status === "0x1") {
+          animatePickleDrop(true);
+          showToast("🥒 Pickle Dropped!");
+          addLogItem('badge-crown', 'BID', `${amount} ETH on ${tier.name}`, `Tx ${txHash.slice(0,14)}…`);
+        } else if (receipt) {
+          showToast("Bid reverted on-chain");
+          addLogItem('badge-bid', 'REVERTED', `Bid on ${tier.name}`, `Tx ${txHash.slice(0,14)}…`);
+        } else {
+          showToast("Bid pending · check the explorer");
+        }
+        await Promise.all([fetchRound(currentTier), refreshBalance()]);
+        updateTierUI();
+      } catch (err) {
+        console.error(err);
+        showToast((err && err.message) ? err.message.slice(0, 120) : "Transaction failed");
+      }
     }
 
+    setInterval(() => { renderTimer(); updateBrineFillLevel(); }, 100);
+
     setInterval(() => {
       const s = tierStates[currentTier];
-      if (s.timeLeftMs > 0) {
-        s.timeLeftMs -= 100;
-        const totalSecs = Math.max(0, s.timeLeftMs / 1000);
-        const mins = Math.floor(totalSecs / 60);
-        const secs = Math.floor(totalSecs % 60);
-        const dec = Math.floor((s.timeLeftMs % 1000) / 100);
-
-        const el = document.getElementById('timerDisplay');
-        el.innerText = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}.${dec}`;
-        if (totalSecs <= 5.0) el.classList.add('urgent');
-        else el.classList.remove('urgent');
-
-        updateBrineFillLevel();
+      if (s.leader && s.kingSince) {
+        document.getElementById('kingTimeHeld').innerText = Math.floor((Date.now() - s.kingSince) / 1000) + "s";
       } else {
-        s.roundId += 1;
-        s.potAmount = s.potAmount * 0.05 + TIERS[currentTier].minBid;
-        s.timeLeftMs = TIERS[currentTier].defaultTimer;
-        s.leader = null;
-        s.totalBids = 0;
-        
-        const picklesLayer = document.getElementById('picklesLayer');
-        picklesLayer.innerHTML = '<span class="jar-pickle" style="left: 38%; bottom: 25px;">🥒</span>';
-        updateTierUI();
-      }
-    }, 100);
-
-    setInterval(() => {
-      const s = tierStates[currentTier];
-      if (s.leader) {
-        s.kingHeld += 1;
-        document.getElementById('kingTimeHeld').innerText = s.kingHeld + "s";
+        document.getElementById('kingTimeHeld').innerText = "–";
       }
     }, 1000);
 
+    setInterval(refreshAll, 3000);
+
+    if (window.ethereum && window.ethereum.on) {
+      window.ethereum.on('accountsChanged', (a) => {
+        if (!a || !a.length) { isConnected = false; userAddress = null; document.getElementById('connectWalletBtn').innerText = "Connect Wallet"; document.getElementById('connectWalletBtn').className = "btn btn-primary btn-sm"; }
+        else { userAddress = a[0]; document.getElementById('connectWalletBtn').innerText = userAddress.slice(0,6) + "..." + userAddress.slice(-4); refreshBalance(); }
+      });
+      window.ethereum.on('chainChanged', () => refreshBalance());
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       selectTier(0);
-      addLogItem('badge-bid', 'GENESIS', 'Contract live: 0xe971...e589', 'Pickle Chain ID: 78270');
+      addLogItem('badge-bid', 'LIVE', 'Contract: 0xe971...e589', 'Pickle Chain ID: 78270');
+      refreshAll();
     });
   </script>
 </body>
