@@ -717,7 +717,7 @@
 
       <div class="header-actions">
         <button class="btn btn-secondary btn-sm" onclick="addPickleNetwork()">🦊 Switch to Pickle</button>
-        <button class="btn btn-secondary btn-sm" onclick="claimFaucet()">🚰 Faucet (+1 ETH)</button>
+        <a class="btn btn-secondary btn-sm" href="https://faucet.picklechain.xyz" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">🚰 Get Test ETH</a>
         <button class="btn btn-primary btn-sm" id="connectWalletBtn" onclick="toggleWallet()">Connect Wallet</button>
       </div>
     </div>
@@ -1135,12 +1135,6 @@
       s.timeLeftMs = Math.min(tier.maxTimer, s.timeLeftMs + 15000);
       updateTierUI();
       showToast("🥒 Pickle Dropped in " + tier.name);
-    }
-
-    function claimFaucet() {
-      userBalance += 1.0;
-      document.getElementById('userBalanceText').innerText = userBalance.toFixed(3) + " ETH";
-      showToast("🚰 +1.000 ETH test funds added");
     }
 
     setInterval(() => {
