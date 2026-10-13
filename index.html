@@ -1381,7 +1381,7 @@
 
       const note = document.createElement('div');
       note.style.cssText = 'font-size:0.72rem;color:#64748b;margin-top:0.5rem;';
-      note.textContent = "Works with: a wallet in your browser (Brave, MetaMask, Rabby extension), or the wallet app's built-in browser (open picklepots.xyz inside Trust, Rabby, MetaMask). Wallet-app WalletConnect links may not work with Pickle Chain yet. No wallet connection? Use the ⚡ Insta Wallet and send it test ETH from anywhere. Testnet only.";
+      note.textContent = "Works with: browser wallets (Brave, MetaMask), Trust Wallet (WalletConnect or its built-in browser), and any wallet's built-in browser. Rabby: use its built-in browser, not WalletConnect. No wallet connection? Use the ⚡ Insta Wallet and send it test ETH from anywhere. Testnet only.";
       card.appendChild(note);
       wrap.appendChild(card);
       document.body.appendChild(wrap);
@@ -1473,7 +1473,7 @@
       } catch (e) {
         const m = (e && e.message) ? e.message : "";
         showToast(/chain|namespace|unsupported|not approved|rejected/i.test(m)
-          ? "This wallet's WalletConnect can't use Pickle Chain (Rabby only allows built-in networks). Open picklepots.xyz inside the wallet's own browser, or use MetaMask/Trust."
+          ? "This wallet's WalletConnect can't use Pickle Chain (Rabby only allows built-in networks). Open picklepots.xyz inside the wallet's own browser, or use Trust or MetaMask."
           : (m ? m.slice(0, 100) : "WalletConnect cancelled"));
       }
     }
@@ -1740,7 +1740,6 @@
         const amt = parseFloat($('depAmt').value);
         if (!(amt > 0)) { showToast("Enter an amount to deposit"); return; }
         if (!isConnected || !userAddress) { showToast("Connect your wallet first, or send coins to the address above from any wallet"); return; }
-        if (activeProvider && activeProvider.__wc) { showToast("Wallet-app links can't deposit here yet. Copy the address above and send from your wallet app instead."); return; }
         try {
           await ensurePickleChain();
           const wei = toWei(amt);
@@ -1754,7 +1753,7 @@
           await waitForReceipt(h);
           await refreshInstaBalance();
           showToast("Deposited ⚡");
-        } catch (err) { showToast((err && err.message) ? err.message.slice(0, 120) : "Deposit failed"); }
+        } catch (err) { showToast(((err && err.message) ? err.message.slice(0, 80) : "Deposit failed") + ". You can also copy the address above and send from your wallet app."); }
       };
 
       $('wdMax').onclick = async () => {

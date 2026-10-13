@@ -35,8 +35,8 @@ With a single bidder (even if they bid several times) there is nobody to beat: t
 
 ### Wallet support
 
-- **Works:** a wallet in your browser (Brave Wallet, MetaMask, Rabby extension), or opening picklepots.xyz inside a wallet app's built-in browser (Trust, Rabby, MetaMask).
-- **Not reliable yet:** connecting a wallet app through WalletConnect. Rabby and Trust don't accept Pickle Chain that way.
+- **Works (tested):** Brave Wallet, Trust Wallet (via WalletConnect and its built-in browser), and opening picklepots.xyz inside a wallet app's built-in browser.
+- **Rabby:** use Rabby's built-in browser. Rabby's WalletConnect only allows its built-in networks, so it can't use Pickle Chain that way.
 - **No connection needed:** fund the ⚡ Insta Wallet by sending test ETH or PKL to its address from any wallet.
 
 ## Network
