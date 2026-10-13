@@ -1434,6 +1434,10 @@
       try {
         showToast("Opening WalletConnect…");
         const EthereumProvider = await loadWalletConnectLib();
+        // Drop any old WalletConnect session (e.g. one made before Pickle Chain was added to the wallet) so we always negotiate a fresh one.
+        try {
+          Object.keys(localStorage).filter(k => k.startsWith("wc@2") || k.startsWith("-walletlink") || k.startsWith("@appkit") || k.startsWith("W3M")).forEach(k => localStorage.removeItem(k));
+        } catch (e) {}
         const prov = await EthereumProvider.init({
           projectId: WC_PROJECT_ID,
           optionalChains: [PICKLE_CHAIN_ID],
@@ -1452,7 +1456,7 @@
         const hasPickle = approved.length === 0 || approved.includes("eip155:" + PICKLE_CHAIN_ID);
         if (!hasPickle) {
           try { await prov.disconnect(); } catch (e) {}
-          showToast("Your wallet doesn't have Pickle Chain yet. Add it as a custom network (use Copy network details), then connect again.");
+          showToast("Wallet approved only: " + (approved.join(", ") || "no chains") + ". Pickle Chain (eip155:78270) was not included. Check the custom network's Chain ID is 78270, then connect again.");
           openWalletPicker();
           return;
         }
