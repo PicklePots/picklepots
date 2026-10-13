@@ -1279,6 +1279,16 @@
         return;
       }
       try {
+        const cur = await withTimeout(prov.request({ method: 'eth_chainId' }), 6000, "no chain id").catch(() => null);
+        if (cur && String(cur).toLowerCase() === PICKLE_CHAIN_ID_HEX) {
+          showToast("🥒 Already on Pickle Chain");
+          return;
+        }
+        if (prov.__wc) {
+          await copyNetworkDetails();
+          showToast("This wallet link can't add networks. Network details copied: add Pickle Chain in your wallet, then reconnect.");
+          return;
+        }
         await prov.request({
           method: 'wallet_addEthereumChain',
           params: [{
