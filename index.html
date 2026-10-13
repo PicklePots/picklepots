@@ -1376,7 +1376,7 @@
 
       const note = document.createElement('div');
       note.style.cssText = 'font-size:0.72rem;color:#64748b;margin-top:0.5rem;';
-      note.textContent = 'Testnet only. Test ETH has no value.';
+      note.textContent = 'Mobile wallets (Rabby, MetaMask, Trust...): add Pickle Chain as a custom network in the wallet FIRST, then connect. Testnet only. Test ETH has no value.';
       card.appendChild(note);
       wrap.appendChild(card);
       document.body.appendChild(wrap);
@@ -1447,6 +1447,15 @@
           }
         });
         await prov.connect();
+        // The wallet only approves chains it already knows. If Pickle Chain isn't one of them the session stays on Ethereum.
+        const approved = (prov.session && prov.session.namespaces && prov.session.namespaces.eip155 && prov.session.namespaces.eip155.chains) || [];
+        const hasPickle = approved.length === 0 || approved.includes("eip155:" + PICKLE_CHAIN_ID);
+        if (!hasPickle) {
+          try { await prov.disconnect(); } catch (e) {}
+          showToast("Your wallet doesn't have Pickle Chain yet. Add it as a custom network (use Copy network details), then connect again.");
+          openWalletPicker();
+          return;
+        }
         await withTimeout(connectWith(prov), 30000, "Wallet didn't answer. Reopen the wallet app, approve, then come back and tap Connect again.");
       } catch (e) {
         showToast((e && e.message) ? e.message.slice(0, 100) : "WalletConnect cancelled");
