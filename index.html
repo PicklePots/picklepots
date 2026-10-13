@@ -1376,7 +1376,7 @@
 
       const note = document.createElement('div');
       note.style.cssText = 'font-size:0.72rem;color:#64748b;margin-top:0.5rem;';
-      note.textContent = 'Mobile wallets (Rabby, MetaMask, Trust...): add Pickle Chain as a custom network in the wallet FIRST, then connect. Testnet only. Test ETH has no value.';
+      note.textContent = 'On a phone: Rabby's WalletConnect can't use custom networks, so open picklepots.xyz in Rabby's built-in browser instead. MetaMask and Trust work with WalletConnect once Pickle Chain is added as a custom network. Testnet only. Test ETH has no value.';
       card.appendChild(note);
       wrap.appendChild(card);
       document.body.appendChild(wrap);
@@ -1465,7 +1465,7 @@
       } catch (e) {
         const m = (e && e.message) ? e.message : "";
         showToast(/chain|namespace|unsupported|not approved|rejected/i.test(m)
-          ? "Wallet refused Pickle Chain (78270). Make sure the custom network is added with Chain ID 78270, then try again."
+          ? "This wallet's WalletConnect can't use Pickle Chain (Rabby only allows built-in networks). Open picklepots.xyz inside the wallet's own browser, or use MetaMask/Trust."
           : (m ? m.slice(0, 100) : "WalletConnect cancelled"));
       }
     }
