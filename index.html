@@ -899,6 +899,9 @@
     const PICKLE_RPC_URL = "https://rpc.picklechain.xyz";
     const PICKLE_EXPLORER = "https://explorer.picklechain.xyz";
     const CONTRACT_ADDRESS = "0xe9712892ab4607510bcb545f1b1377b69f6ae589";
+    const WC_PROJECT_ID = "bd651e85e9e957d0d799491ea0dd2eaa";
+    const WC_SCRIPT = "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.21.1/dist/index.umd.js";
+    const PICKLE_CHAIN_ID = 78270;
 
     const TIERS = [
       { id: 0, name: "Cocktail Jar 🍸", emoji: "🍸", minBid: 0.0001, pace: "Each bid adds +10s (max 45s)", presets: [0.0001, 0.0002, 0.0005, 0.001], defaultTimer: 25000, maxTimer: 45000 },
@@ -1149,13 +1152,41 @@
       addLogItem('badge-bid', 'IDLE', 'PicklePots live at 0xe971...e589', 'Reading rounds from Pickle Chain');
     }
 
+    // ---- Wallet connection: detected browser wallets (EIP-6963) + WalletConnect ----
+    let activeProvider = null;
+    const detectedWallets = [];
+
+    window.addEventListener('eip6963:announceProvider', (ev) => {
+      const d = ev.detail;
+      if (d && d.info && d.provider && !detectedWallets.some(w => w.info.uuid === d.info.uuid)) {
+        detectedWallets.push(d);
+      }
+    });
+    window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+    function loadWalletConnectLib() {
+      return new Promise((resolve, reject) => {
+        const lib = window['@walletconnect/ethereum-provider'];
+        if (lib && lib.EthereumProvider) return resolve(lib.EthereumProvider);
+        const sc = document.createElement('script');
+        sc.src = WC_SCRIPT;
+        sc.onload = () => {
+          const l = window['@walletconnect/ethereum-provider'];
+          l && l.EthereumProvider ? resolve(l.EthereumProvider) : reject(new Error("WalletConnect failed to load"));
+        };
+        sc.onerror = () => reject(new Error("Could not load WalletConnect"));
+        document.head.appendChild(sc);
+      });
+    }
+
     async function addPickleNetwork() {
-      if (!window.ethereum) {
-        showToast("🦊 Web3 wallet not detected.");
+      const prov = activeProvider || window.ethereum;
+      if (!prov) {
+        showToast("Connect a wallet first");
         return;
       }
       try {
-        await window.ethereum.request({
+        await prov.request({
           method: 'wallet_addEthereumChain',
           params: [{
             chainId: PICKLE_CHAIN_ID_HEX,
@@ -1172,38 +1203,147 @@
     }
 
     async function ensurePickleChain() {
-      const cur = await window.ethereum.request({ method: 'eth_chainId' });
-      if (cur && cur.toLowerCase() === PICKLE_CHAIN_ID_HEX) return;
+      const cur = await activeProvider.request({ method: 'eth_chainId' });
+      if (cur && String(cur).toLowerCase() === PICKLE_CHAIN_ID_HEX) return;
       try {
-        await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: PICKLE_CHAIN_ID_HEX }] });
+        await activeProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: PICKLE_CHAIN_ID_HEX }] });
       } catch (e) {
         await addPickleNetwork();
-        const again = await window.ethereum.request({ method: 'eth_chainId' });
-        if (!again || again.toLowerCase() !== PICKLE_CHAIN_ID_HEX) throw new Error("Switch your wallet to Pickle Chain (78270)");
+        const again = await activeProvider.request({ method: 'eth_chainId' });
+        if (!again || String(again).toLowerCase() !== PICKLE_CHAIN_ID_HEX) throw new Error("Switch your wallet to Pickle Chain (78270)");
       }
     }
 
-    async function toggleWallet() {
-      const btn = document.getElementById('connectWalletBtn');
-      if (!window.ethereum) {
-        showToast("🦊 Install a Web3 wallet (e.g. MetaMask) to play");
-        return;
+    function closeWalletPicker() {
+      const m = document.getElementById('walletPicker');
+      if (m) m.remove();
+    }
+
+    function openWalletPicker() {
+      closeWalletPicker();
+      const wrap = document.createElement('div');
+      wrap.id = 'walletPicker';
+      wrap.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:1rem;';
+      wrap.onclick = (e) => { if (e.target === wrap) closeWalletPicker(); };
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#101915;border:1px solid var(--border);border-radius:14px;padding:1.1rem;width:100%;max-width:360px;box-shadow:0 20px 50px rgba(0,0,0,0.6);';
+      const h = document.createElement('div');
+      h.style.cssText = 'font-weight:800;font-size:1.05rem;margin-bottom:0.75rem;color:var(--text-main);';
+      h.textContent = 'Connect a wallet';
+      card.appendChild(h);
+
+      const mkBtn = (label, iconUrl, onClick) => {
+        const b = document.createElement('button');
+        b.className = 'btn btn-secondary';
+        b.style.cssText = 'width:100%;justify-content:flex-start;margin-bottom:0.5rem;padding:0.7rem 0.9rem;';
+        if (iconUrl) {
+          const im = document.createElement('img');
+          im.src = iconUrl; im.width = 24; im.height = 24; im.alt = '';
+          im.style.borderRadius = '6px';
+          b.appendChild(im);
+        }
+        const sp = document.createElement('span');
+        sp.textContent = label;
+        b.appendChild(sp);
+        b.onclick = onClick;
+        return b;
+      };
+
+      detectedWallets.forEach(w => {
+        card.appendChild(mkBtn(w.info.name, w.info.icon, () => connectWith(w.provider)));
+      });
+      if (!detectedWallets.length && window.ethereum) {
+        card.appendChild(mkBtn('Browser wallet', null, () => connectWith(window.ethereum)));
       }
+      card.appendChild(mkBtn('WalletConnect · mobile & other wallets', null, connectWalletConnect));
+
+      const note = document.createElement('div');
+      note.style.cssText = 'font-size:0.72rem;color:#64748b;margin-top:0.4rem;';
+      note.textContent = 'Testnet only. Test ETH has no value.';
+      card.appendChild(note);
+      wrap.appendChild(card);
+      document.body.appendChild(wrap);
+    }
+
+    function bindProviderEvents(prov) {
+      if (!prov || !prov.on) return;
+      prov.on('accountsChanged', (a) => {
+        if (!a || !a.length) { resetWalletUI(); return; }
+        userAddress = a[0];
+        setConnectedUI();
+        refreshBalance();
+      });
+      prov.on('chainChanged', () => refreshBalance());
+      prov.on('disconnect', () => resetWalletUI());
+    }
+
+    function setConnectedUI() {
+      const btn = document.getElementById('connectWalletBtn');
+      btn.innerText = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+      btn.className = "btn btn-secondary btn-sm";
+    }
+
+    function resetWalletUI() {
+      activeProvider = null; userAddress = null; isConnected = false; userBalance = 0;
+      const btn = document.getElementById('connectWalletBtn');
+      btn.innerText = "Connect Wallet";
+      btn.className = "btn btn-primary btn-sm";
+      document.getElementById('userBalanceText').innerText = "0.000 ETH";
+    }
+
+    async function connectWith(prov) {
+      closeWalletPicker();
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const accounts = await prov.request({ method: 'eth_requestAccounts' });
         if (accounts && accounts.length > 0) {
+          activeProvider = prov;
           userAddress = accounts[0];
           isConnected = true;
-          btn.innerText = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
-          btn.className = "btn btn-secondary btn-sm";
-          await ensurePickleChain();
+          setConnectedUI();
+          bindProviderEvents(prov);
+          try { await ensurePickleChain(); } catch (e) { showToast(e.message); }
           await refreshBalance();
           showToast("Connected: " + userAddress.slice(0,6));
           addLogItem('badge-crown', 'CONNECTED', `Wallet ${userAddress.slice(0,8)}...`, 'Pickle Chain testnet');
         }
       } catch (e) {
-        showToast(e.message || "Wallet connection failed");
+        showToast((e && e.message) ? e.message.slice(0, 100) : "Wallet connection failed");
       }
+    }
+
+    async function connectWalletConnect() {
+      closeWalletPicker();
+      try {
+        showToast("Opening WalletConnect…");
+        const EthereumProvider = await loadWalletConnectLib();
+        const prov = await EthereumProvider.init({
+          projectId: WC_PROJECT_ID,
+          optionalChains: [PICKLE_CHAIN_ID],
+          rpcMap: { [PICKLE_CHAIN_ID]: PICKLE_RPC_URL },
+          showQrModal: true,
+          metadata: {
+            name: "PicklePots",
+            description: "King of the Jar on Pickle Chain",
+            url: location.origin,
+            icons: [location.origin + "/assets/favicon.png"]
+          }
+        });
+        await prov.connect();
+        await connectWith(prov);
+      } catch (e) {
+        showToast((e && e.message) ? e.message.slice(0, 100) : "WalletConnect cancelled");
+      }
+    }
+
+    async function toggleWallet() {
+      if (isConnected) {
+        try { if (activeProvider && activeProvider.disconnect) await activeProvider.disconnect(); } catch (e) {}
+        resetWalletUI();
+        showToast("Wallet disconnected");
+        return;
+      }
+      window.dispatchEvent(new Event('eip6963:requestProvider'));
+      setTimeout(openWalletPicker, 80);
     }
 
     async function refreshBalance() {
@@ -1245,7 +1385,7 @@
         const data = "0x5187338c" + currentTier.toString(16).padStart(64, '0');
 
         showToast("Confirm the bid in your wallet…");
-        const txHash = await window.ethereum.request({
+        const txHash = await activeProvider.request({
           method: 'eth_sendTransaction',
           params: [{ from: userAddress, to: CONTRACT_ADDRESS, value: weiValue, data }]
         });
@@ -1281,14 +1421,6 @@
     }, 1000);
 
     setInterval(refreshAll, 3000);
-
-    if (window.ethereum && window.ethereum.on) {
-      window.ethereum.on('accountsChanged', (a) => {
-        if (!a || !a.length) { isConnected = false; userAddress = null; document.getElementById('connectWalletBtn').innerText = "Connect Wallet"; document.getElementById('connectWalletBtn').className = "btn btn-primary btn-sm"; }
-        else { userAddress = a[0]; document.getElementById('connectWalletBtn').innerText = userAddress.slice(0,6) + "..." + userAddress.slice(-4); refreshBalance(); }
-      });
-      window.ethereum.on('chainChanged', () => refreshBalance());
-    }
 
     document.addEventListener('DOMContentLoaded', () => {
       selectTier(0);
