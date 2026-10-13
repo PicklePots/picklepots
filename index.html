@@ -1440,6 +1440,7 @@
         } catch (e) {}
         const prov = await EthereumProvider.init({
           projectId: WC_PROJECT_ID,
+          chains: [PICKLE_CHAIN_ID],
           optionalChains: [PICKLE_CHAIN_ID],
           rpcMap: { [PICKLE_CHAIN_ID]: PICKLE_RPC_URL },
           showQrModal: true,
@@ -1462,7 +1463,10 @@
         }
         await withTimeout(connectWith(prov), 30000, "Wallet didn't answer. Reopen the wallet app, approve, then come back and tap Connect again.");
       } catch (e) {
-        showToast((e && e.message) ? e.message.slice(0, 100) : "WalletConnect cancelled");
+        const m = (e && e.message) ? e.message : "";
+        showToast(/chain|namespace|unsupported|not approved|rejected/i.test(m)
+          ? "Wallet refused Pickle Chain (78270). Make sure the custom network is added with Chain ID 78270, then try again."
+          : (m ? m.slice(0, 100) : "WalletConnect cancelled"));
       }
     }
 
