@@ -4,7 +4,7 @@
 
 **4-tier, real-time "King of the Jar" game on Pickle Chain.** Drop a bid, reset the timer, and be the last bidder standing to win the pot.
 
-**Live app:** https://picklepots.pages.dev (reads rounds directly from Pickle Chain testnet)
+**Live app:** https://picklepots.xyz (reads rounds directly from Pickle Chain testnet)
 
 ## How it works
 
