@@ -1290,13 +1290,35 @@
       }
     }
 
+    const withTimeout = (promise, ms, msg) => Promise.race([
+      promise,
+      new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms))
+    ]);
+
+    const NETWORK_HELP = "Pickle Chain isn't set up in your wallet yet. Add it as a custom network (tap \"Copy network details\" in the wallet picker), then try again.";
+
+    function networkDetailsText() {
+      return "Network name: Pickle Chain Testnet\nRPC URL: " + PICKLE_RPC_URL + "\nChain ID: " + PICKLE_CHAIN_ID + "\nCurrency symbol: ETH\nBlock explorer: " + PICKLE_EXPLORER;
+    }
+
+    async function copyNetworkDetails() {
+      try {
+        await navigator.clipboard.writeText(networkDetailsText());
+        showToast("Network details copied. Add them in your wallet as a custom network.");
+      } catch (e) {
+        window.prompt("Copy these network details:", networkDetailsText().replace(/\n/g, " | "));
+      }
+    }
+
     async function ensurePickleChain() {
-      const cur = await activeProvider.request({ method: 'eth_chainId' });
+      const isWC = !!(activeProvider && (activeProvider.isWalletConnect || (activeProvider.signer && activeProvider.signer.client)));
+      const cur = await withTimeout(activeProvider.request({ method: 'eth_chainId' }), 8000, NETWORK_HELP);
       if (cur && String(cur).toLowerCase() === PICKLE_CHAIN_ID_HEX) return;
       try {
-        await activeProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: PICKLE_CHAIN_ID_HEX }] });
+        await withTimeout(activeProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: PICKLE_CHAIN_ID_HEX }] }), 25000, NETWORK_HELP);
       } catch (e) {
-        await addPickleNetwork();
+        if (isWC) throw new Error(NETWORK_HELP); // most mobile wallets cannot add a chain over WalletConnect
+        await withTimeout(addPickleNetwork(), 25000, NETWORK_HELP);
         const again = await activeProvider.request({ method: 'eth_chainId' });
         if (!again || String(again).toLowerCase() !== PICKLE_CHAIN_ID_HEX) throw new Error("Switch your wallet to Pickle Chain (78270)");
       }
@@ -1345,8 +1367,15 @@
       }
       card.appendChild(mkBtn('WalletConnect · mobile & other wallets', null, connectWalletConnect));
 
+      const cp = document.createElement('button');
+      cp.className = 'btn btn-secondary btn-sm';
+      cp.style.cssText = 'width:100%;margin-top:0.25rem;';
+      cp.textContent = '📋 Copy network details (add Pickle Chain to your wallet)';
+      cp.onclick = copyNetworkDetails;
+      card.appendChild(cp);
+
       const note = document.createElement('div');
-      note.style.cssText = 'font-size:0.72rem;color:#64748b;margin-top:0.4rem;';
+      note.style.cssText = 'font-size:0.72rem;color:#64748b;margin-top:0.5rem;';
       note.textContent = 'Testnet only. Test ETH has no value.';
       card.appendChild(note);
       wrap.appendChild(card);
@@ -1389,10 +1418,11 @@
           isConnected = true;
           setConnectedUI();
           bindProviderEvents(prov);
-          try { await ensurePickleChain(); } catch (e) { showToast(e.message); }
-          await refreshBalance();
           showToast("Connected: " + userAddress.slice(0,6));
           addLogItem('badge-crown', 'CONNECTED', `Wallet ${userAddress.slice(0,8)}...`, 'Pickle Chain testnet');
+          refreshBalance();
+          // Check the network in the background so a wallet that stalls on a chain switch can't hang the connect.
+          ensurePickleChain().catch((e) => showToast(e.message));
         }
       } catch (e) {
         showToast((e && e.message) ? e.message.slice(0, 100) : "Wallet connection failed");
@@ -1417,7 +1447,7 @@
           }
         });
         await prov.connect();
-        await connectWith(prov);
+        await withTimeout(connectWith(prov), 30000, "Wallet didn't answer. Reopen the wallet app, approve, then come back and tap Connect again.");
       } catch (e) {
         showToast((e && e.message) ? e.message.slice(0, 100) : "WalletConnect cancelled");
       }
