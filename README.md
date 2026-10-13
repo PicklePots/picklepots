@@ -35,9 +35,9 @@ With a single bidder (even if they bid several times) there is nobody to beat: t
 
 ### Wallet support
 
-- **Tested with a real wallet:** Trust Wallet over WalletConnect (connect and bid).
-- **Rabby:** its WalletConnect only allows built-in networks, so it can't use Pickle Chain that way. Try Rabby's built-in browser instead (not yet tested).
-- **Other wallets** (Brave Wallet, MetaMask, in-app browsers) should work through the standard browser-wallet flow but have not been tested yet.
+- **Tested on a phone with real wallets:** Trust Wallet over WalletConnect (connect and bid), and Rabby inside its built-in browser (connect, bid, ⚡ Insta Wallet deposit and bids, PKL jar).
+- **Rabby over WalletConnect:** not supported. Rabby's WalletConnect only allows its built-in networks, so use Rabby's built-in browser.
+- **Other wallets** (Brave Wallet, MetaMask, other in-app browsers) should work through the standard browser-wallet flow but have not been tested yet.
 - **No connection needed:** fund the ⚡ Insta Wallet by sending test ETH or PKL to its address from any wallet.
 
 ## Network
