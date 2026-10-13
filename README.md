@@ -33,6 +33,12 @@ With a single bidder (even if they bid several times) there is nobody to beat: t
 - **Connected wallet:** your wallet pops up and you sign each bid.
 - **⚡ Insta Wallet:** a small play wallet kept in your browser. Fund it once (send test ETH or PKL to its address, or deposit from your connected wallet) and every bid is signed locally and sent instantly with no pop-ups. Winnings and refunds are paid straight to your main wallet (the contract's `dropBidFor` / `dropBidToken` take a beneficiary). Withdraw any leftover balance whenever you like. Testnet play money only: the key lives in the browser, so use Export key to back it up.
 
+### Wallet support
+
+- **Works:** a wallet in your browser (Brave Wallet, MetaMask, Rabby extension), or opening picklepots.xyz inside a wallet app's built-in browser (Trust, Rabby, MetaMask).
+- **Not reliable yet:** connecting a wallet app through WalletConnect. Rabby and Trust don't accept Pickle Chain that way.
+- **No connection needed:** fund the ⚡ Insta Wallet by sending test ETH or PKL to its address from any wallet.
+
 ## Network
 
 | | |

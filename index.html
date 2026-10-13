@@ -1381,7 +1381,7 @@
 
       const note = document.createElement('div');
       note.style.cssText = 'font-size:0.72rem;color:#64748b;margin-top:0.5rem;';
-      note.textContent = "On a phone: Rabby's WalletConnect can't use custom networks, so open picklepots.xyz in Rabby's built-in browser instead. MetaMask and Trust work with WalletConnect once Pickle Chain is added as a custom network. Testnet only. Test ETH has no value.";
+      note.textContent = "Works with: a wallet in your browser (Brave, MetaMask, Rabby extension), or the wallet app's built-in browser (open picklepots.xyz inside Trust, Rabby, MetaMask). Wallet-app WalletConnect links may not work with Pickle Chain yet. No wallet connection? Use the ⚡ Insta Wallet and send it test ETH from anywhere. Testnet only.";
       card.appendChild(note);
       wrap.appendChild(card);
       document.body.appendChild(wrap);
@@ -1459,6 +1459,7 @@
           }
         });
         await prov.connect();
+        prov.__wc = true;
         // The wallet only approves chains it already knows. If Pickle Chain isn't one of them the session stays on Ethereum.
         const approved = (prov.session && prov.session.namespaces && prov.session.namespaces.eip155 && prov.session.namespaces.eip155.chains) || [];
         const hasPickle = approved.length === 0 || approved.includes("eip155:" + PICKLE_CHAIN_ID);
@@ -1739,6 +1740,7 @@
         const amt = parseFloat($('depAmt').value);
         if (!(amt > 0)) { showToast("Enter an amount to deposit"); return; }
         if (!isConnected || !userAddress) { showToast("Connect your wallet first, or send coins to the address above from any wallet"); return; }
+        if (activeProvider && activeProvider.__wc) { showToast("Wallet-app links can't deposit here yet. Copy the address above and send from your wallet app instead."); return; }
         try {
           await ensurePickleChain();
           const wei = toWei(amt);
