@@ -28,6 +28,11 @@ With two or more different bidders:
 
 With a single bidder (even if they bid several times) there is nobody to beat: they get their bids back in full, no fee is taken, and any seed already in the pot rolls into the next round. If a winner's address rejects payment, the funds are credited to them and they can pull them with `claim(token)`, so a jar can never be frozen.
 
+## Two ways to play
+
+- **Connected wallet:** your wallet pops up and you sign each bid.
+- **⚡ Insta Wallet:** a small play wallet kept in your browser. Fund it once (send test ETH or PKL to its address, or deposit from your connected wallet) and every bid is signed locally and sent instantly with no pop-ups. Winnings and refunds are paid straight to your main wallet (the contract's `dropBidFor` / `dropBidToken` take a beneficiary). Withdraw any leftover balance whenever you like. Testnet play money only: the key lives in the browser, so use Export key to back it up.
+
 ## Network
 
 | | |

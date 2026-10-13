@@ -778,6 +778,7 @@
 
       <div class="header-actions">
         <span id="liveStatus" style="font-family:var(--font-mono); font-size:0.7rem; color:#f59e0b;">● connecting…</span>
+        <button class="btn btn-secondary btn-sm" id="instaHeaderBtn" onclick="openInsta()">⚡ Insta Wallet</button>
         <button class="btn btn-secondary btn-sm" onclick="addPickleNetwork()">🦊 Switch to Pickle</button>
         <a class="btn btn-secondary btn-sm" href="https://faucet.picklechain.xyz" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">🚰 Get Test ETH</a>
         <button class="btn btn-primary btn-sm" id="connectWalletBtn" onclick="toggleWallet()">Connect Wallet</button>
@@ -886,12 +887,16 @@
             <span class="bid-unit" id="bidUnit">ETH</span>
           </div>
 
+          <div id="modeSwitch" style="display:flex;gap:0.4rem;margin-bottom:0.6rem;">
+            <button class="btn btn-secondary btn-sm" id="modeMain" onclick="setBidMode(false)" style="flex:1;">🔐 Connected wallet <span style="opacity:.7;font-weight:400;">(you sign)</span></button>
+            <button class="btn btn-secondary btn-sm" id="modeInsta" onclick="setBidMode(true)" style="flex:1;">⚡ Insta <span style="opacity:.7;font-weight:400;">(no pop-ups)</span></button>
+          </div>
           <button class="btn-drop-bid" id="dropBidBtn" onclick="placeBid()">
-            <span>🥒</span> DROP A PICKLE (TAKE THE CROWN)
+            <span>🥒</span> <span id="dropBtnText">DROP A PICKLE (TAKE THE CROWN)</span>
           </button>
           
           <div style="display:flex; justify-content:space-between; margin-top:0.6rem; font-size:0.75rem; color:#64748b;">
-            <span>Wallet: <b id="userBalanceText" style="color:var(--text-main);">0.000 ETH</b></span>
+            <span><span id="balLabel">Wallet</span>: <b id="userBalanceText" style="color:var(--text-main);">0.000 ETH</b></span>
             <span id="tierPaceLabel">Each bid adds +10s to timer (max 45s)</span>
           </div>
         </div>
@@ -1405,7 +1410,8 @@
       const btn = document.getElementById('connectWalletBtn');
       btn.innerText = "Connect Wallet";
       btn.className = "btn btn-primary btn-sm";
-      document.getElementById('userBalanceText').innerText = "0.000 ETH";
+      userBalanceTok = 0;
+      renderBalanceText();
     }
 
     async function connectWith(prov) {
@@ -1418,6 +1424,7 @@
           isConnected = true;
           setConnectedUI();
           bindProviderEvents(prov);
+          if (!isAddr(lsGet(LS_PAYOUT))) lsSet(LS_PAYOUT, userAddress);
           showToast("Connected: " + userAddress.slice(0,6));
           addLogItem('badge-crown', 'CONNECTED', `Wallet ${userAddress.slice(0,8)}...`, 'Pickle Chain testnet');
           refreshBalance();
@@ -1481,21 +1488,348 @@
       setTimeout(openWalletPicker, 80);
     }
 
+    // ------------------------------------------------------------------
+    // ⚡ Insta Wallet: a small play wallet kept in this browser. Fund it once,
+    // then bids are signed locally and sent with no wallet pop-ups. Winnings and
+    // refunds are sent to the payout address (your main wallet) via dropBidFor.
+    // Testnet only: only keep play money in it. The key lives in this browser's
+    // storage, so back it up (Export key) and never share it.
+    // ------------------------------------------------------------------
+    const ETHERS_SRC = "https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js";
+    const ETHERS_SRI = "sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM";
+    const LS_KEY = "pp_insta_key", LS_ON = "pp_insta_on", LS_PAYOUT = "pp_payout_addr", LS_MODE = "pp_payout_mode";
+    const isAddr = (a) => /^0x[0-9a-fA-F]{40}$/.test(a || "");
+    const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+    const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+
+    let insta = { wallet: null, address: null, on: false, ethBal: 0, pklBal: 0, nonce: null, nonceAt: 0 };
+
+    function loadEthers() {
+      if (window.ethers) return Promise.resolve(window.ethers);
+      return new Promise((resolve, reject) => {
+        const sc = document.createElement('script');
+        sc.src = ETHERS_SRC;
+        sc.integrity = ETHERS_SRI;
+        sc.crossOrigin = "anonymous";
+        sc.onload = () => window.ethers ? resolve(window.ethers) : reject(new Error("Signing library failed to load"));
+        sc.onerror = () => reject(new Error("Couldn't load the signing library. Check your connection."));
+        document.head.appendChild(sc);
+      });
+    }
+
+    async function initInsta() {
+      const k = lsGet(LS_KEY);
+      if (!k) return;
+      try {
+        const e = await loadEthers();
+        insta.wallet = new e.Wallet(k);
+        insta.address = insta.wallet.address;
+        insta.on = lsGet(LS_ON) === "1";
+        await refreshInstaBalance();
+      } catch (err) { console.warn("insta init failed", err); }
+    }
+
+    async function createInsta() {
+      const e = await loadEthers();
+      const w = e.Wallet.createRandom();
+      lsSet(LS_KEY, w.privateKey);
+      lsSet(LS_ON, "1");
+      insta.wallet = new e.Wallet(w.privateKey);
+      insta.address = w.address;
+      insta.on = true;
+      insta.nonce = null;
+      await refreshInstaBalance();
+    }
+
+    async function refreshInstaBalance() {
+      if (!insta.address) return;
+      try {
+        const [b, t] = await Promise.all([
+          rpc('eth_getBalance', [insta.address, 'latest']),
+          rpc('eth_call', [{ to: PKL_TOKEN, data: "0x70a08231" + pad32(insta.address) }, 'latest'])
+        ]);
+        insta.ethBal = Number(BigInt(b)) / 1e18;
+        insta.pklBal = Number(BigInt(t)) / 1e18;
+      } catch (e) {}
+      renderBalanceText();
+      renderInstaPanelBalances();
+    }
+
+    function payoutAddress() {
+      const mode = lsGet(LS_MODE) || "main";
+      const saved = lsGet(LS_PAYOUT);
+      if (mode === "main" && isAddr(saved)) return saved;
+      if (mode === "main" && isAddr(userAddress)) return userAddress;
+      return insta.address;
+    }
+
+    const toWei = (amount) => BigInt(Math.round(amount * 1e6)) * 1000000000000n;
+
+    async function instaSend({ to, data, value }) {
+      const e = await loadEthers();
+      const from = insta.address;
+      const valueHex = "0x" + (value || 0n).toString(16);
+      if (insta.nonce === null || Date.now() - insta.nonceAt > 15000) {
+        insta.nonce = parseInt(await rpc('eth_getTransactionCount', [from, 'pending']), 16);
+      }
+      insta.nonceAt = Date.now();
+      const [gp, est] = await Promise.all([
+        rpc('eth_gasPrice', []),
+        rpc('eth_estimateGas', [{ from, to, data, value: valueHex }]).catch((err) => { throw new Error("Would fail on-chain: " + (err.message || "reverted")); })
+      ]);
+      const tx = {
+        type: 0, chainId: PICKLE_CHAIN_ID, nonce: insta.nonce,
+        gasPrice: BigInt(gp) * 12n / 10n, gasLimit: BigInt(est) * 13n / 10n,
+        to, data, value: value || 0n
+      };
+      const raw = await insta.wallet.signTransaction(tx);
+      try {
+        const hash = await rpc('eth_sendRawTransaction', [raw]);
+        insta.nonce += 1;
+        return hash;
+      } catch (err) { insta.nonce = null; throw err; }
+    }
+
+    async function instaPlaceBid(amount) {
+      const tier = TIERS[currentTier];
+      const have = tier.token ? insta.pklBal : insta.ethBal;
+      if (have < amount) { showToast("Insta Wallet is low: " + have.toFixed(tier.token ? 2 : 4) + " " + tier.unit + ". Open ⚡ Insta Wallet to deposit."); return; }
+      if (!tier.token && insta.ethBal - amount < 0.0002) { showToast("Keep a little ETH in the Insta Wallet for gas."); }
+      try {
+        const wei = toWei(amount);
+        const tierArg = currentTier.toString(16).padStart(64, '0');
+        const ben = payoutAddress();
+        let hash;
+        if (tier.token) {
+          const al = await rpc('eth_call', [{ to: tier.token, data: "0xdd62ed3e" + pad32(insta.address) + pad32(CONTRACT_ADDRESS) }, 'latest']);
+          if (BigInt(al) < wei) {
+            showToast("First PKL bid: approving (one time)…");
+            const ah = await instaSend({ to: tier.token, data: "0x095ea7b3" + pad32(CONTRACT_ADDRESS) + (10n ** 24n).toString(16).padStart(64, '0') });
+            const ar = await waitForReceipt(ah);
+            if (!ar || ar.status !== "0x1") { showToast("Approval failed"); return; }
+            insta.nonce = null;
+          }
+          hash = await instaSend({ to: CONTRACT_ADDRESS, data: "0xbac3ade0" + tierArg + pad32(ben) + wei.toString(16).padStart(64, '0') });
+        } else {
+          hash = await instaSend({ to: CONTRACT_ADDRESS, value: wei, data: "0x74818242" + tierArg + pad32(ben) });
+        }
+        showToast("⚡ Bid sent");
+        animatePickleDrop(true);
+        addLogItem('badge-crown', 'INSTA', `${amount} ${tier.unit} on ${tier.name}`, `Tx ${hash.slice(0,14)}…`);
+        fetchRound(currentTier).then(updateTierUI).catch(() => {});
+        const receipt = await waitForReceipt(hash);
+        if (receipt && receipt.status !== "0x1") { showToast("Bid reverted on-chain"); }
+        await Promise.all([fetchRound(currentTier), refreshInstaBalance()]);
+        updateTierUI();
+      } catch (err) {
+        console.error(err);
+        showToast((err && err.message) ? err.message.slice(0, 140) : "Insta bid failed");
+      }
+    }
+
+    // ---------------- panel ----------------
+    function closeInsta() { const m = document.getElementById('instaPanel'); if (m) m.remove(); }
+
+    function renderInstaPanelBalances() {
+      const a = document.getElementById('instaEth'), b = document.getElementById('instaPkl');
+      if (a) a.textContent = insta.ethBal.toFixed(4) + " ETH";
+      if (b) b.textContent = insta.pklBal.toFixed(2) + " PKL";
+    }
+
+    async function openInsta() {
+      closeInsta();
+      const wrap = document.createElement('div');
+      wrap.id = 'instaPanel';
+      wrap.style.cssText = 'position:fixed;inset:0;z-index:210;background:rgba(0,0,0,0.7);display:flex;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;';
+      wrap.onclick = (ev) => { if (ev.target === wrap) closeInsta(); };
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#101915;border:1px solid var(--border);border-radius:14px;padding:1.1rem;width:100%;max-width:400px;margin:auto;box-shadow:0 20px 50px rgba(0,0,0,0.6);';
+      wrap.appendChild(card);
+      document.body.appendChild(wrap);
+
+      if (!insta.wallet) {
+        card.innerHTML = `
+          <div style="font-weight:800;font-size:1.1rem;margin-bottom:0.5rem;">⚡ Insta Wallet</div>
+          <div style="font-size:0.85rem;color:var(--text-muted);line-height:1.5;margin-bottom:0.9rem;">
+            A small play wallet kept in this browser. Fund it once, then every bid goes through <b>instantly with no wallet pop-ups</b>.
+            Winnings and refunds are paid to your main wallet. You can withdraw whatever is left any time.
+          </div>
+          <div style="font-size:0.75rem;color:#f59e0b;margin-bottom:0.9rem;">Testnet play money only. The key is stored in this browser, so only keep what you're happy to lose.</div>
+          <button class="btn btn-primary" id="instaCreate" style="width:100%;">Create my Insta Wallet</button>
+          <button class="btn btn-secondary btn-sm" id="instaClose" style="width:100%;margin-top:0.5rem;">Not now</button>`;
+        card.querySelector('#instaClose').onclick = closeInsta;
+        card.querySelector('#instaCreate').onclick = async () => {
+          try { await createInsta(); showToast("⚡ Insta Wallet created. Add some test ETH to start."); openInsta(); }
+          catch (err) { showToast(err.message || "Couldn't create the wallet"); }
+        };
+        return;
+      }
+
+      const mode = lsGet(LS_MODE) || "main";
+      const payout = lsGet(LS_PAYOUT) || userAddress || "";
+      card.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem;">
+          <div style="font-weight:800;font-size:1.1rem;">⚡ Insta Wallet</div>
+          <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;cursor:pointer;"><input type="checkbox" id="instaOn"> Use for bids</label>
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.7rem;">Bids from this wallet go through instantly with no pop-ups.</div>
+
+        <div style="background:#0d1512;border:1px solid var(--border);border-radius:10px;padding:0.7rem;margin-bottom:0.8rem;">
+          <div style="font-size:0.68rem;color:#889990;text-transform:uppercase;">Play wallet address (send test coins here from any wallet)</div>
+          <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.3rem;">
+            <code id="instaAddr" style="font-size:0.72rem;word-break:break-all;flex:1;"></code>
+            <button class="btn btn-secondary btn-sm" id="instaCopy">Copy</button>
+          </div>
+          <div style="display:flex;gap:1.2rem;margin-top:0.6rem;font-family:var(--font-mono);font-size:0.95rem;font-weight:700;">
+            <span id="instaEth">0 ETH</span><span id="instaPkl">0 PKL</span>
+          </div>
+        </div>
+
+        <div style="font-weight:700;font-size:0.85rem;margin-bottom:0.35rem;">Deposit from your connected wallet</div>
+        <div style="display:flex;gap:0.4rem;margin-bottom:0.2rem;">
+          <input id="depAmt" class="bid-input" type="number" step="any" min="0" placeholder="0.01" style="flex:1;min-width:0;">
+          <select id="depTok" class="bid-input" style="width:auto;"><option>ETH</option><option>PKL</option></select>
+          <button class="btn btn-primary btn-sm" id="depGo">Deposit</button>
+        </div>
+        <div style="font-size:0.7rem;color:#64748b;margin-bottom:0.9rem;">Keep a little ETH for gas (a few cents' worth lasts a long time).</div>
+
+        <div style="font-weight:700;font-size:0.85rem;margin-bottom:0.35rem;">Withdraw to payout address</div>
+        <div style="display:flex;gap:0.4rem;margin-bottom:0.9rem;">
+          <input id="wdAmt" class="bid-input" type="number" step="any" min="0" placeholder="amount" style="flex:1;min-width:0;">
+          <select id="wdTok" class="bid-input" style="width:auto;"><option>ETH</option><option>PKL</option></select>
+          <button class="btn btn-secondary btn-sm" id="wdMax">Max</button>
+          <button class="btn btn-primary btn-sm" id="wdGo">Withdraw</button>
+        </div>
+
+        <div style="font-weight:700;font-size:0.85rem;margin-bottom:0.35rem;">Winnings and refunds go to</div>
+        <select id="payMode" class="bid-input" style="width:100%;margin-bottom:0.4rem;">
+          <option value="main">My main wallet (address below)</option>
+          <option value="insta">This Insta Wallet (keep playing)</option>
+        </select>
+        <input id="payAddr" class="bid-input" type="text" placeholder="0x… main wallet address" style="width:100%;font-size:0.78rem;">
+        <div style="font-size:0.7rem;color:#64748b;margin:0.3rem 0 0.9rem;">Connecting your wallet fills this in automatically.</div>
+
+        <div style="display:flex;gap:0.5rem;">
+          <button class="btn btn-secondary btn-sm" id="instaExport" style="flex:1;">Export key (backup)</button>
+          <button class="btn btn-secondary btn-sm" id="instaClose2" style="flex:1;">Close</button>
+        </div>`;
+      const $ = (id) => card.querySelector('#' + id);
+      $('instaAddr').textContent = insta.address;
+      $('instaOn').checked = insta.on;
+      $('payMode').value = mode;
+      $('payAddr').value = payout;
+      renderInstaPanelBalances();
+      refreshInstaBalance();
+
+      $('instaOn').onchange = (ev) => { insta.on = ev.target.checked; lsSet(LS_ON, insta.on ? "1" : "0"); renderBalanceText(); };
+      $('instaCopy').onclick = async () => { try { await navigator.clipboard.writeText(insta.address); showToast("Address copied"); } catch (e) { showToast(insta.address); } };
+      $('instaClose2').onclick = closeInsta;
+      $('payMode').onchange = (ev) => lsSet(LS_MODE, ev.target.value);
+      $('payAddr').onchange = (ev) => {
+        const v = ev.target.value.trim();
+        if (v && !isAddr(v)) { showToast("That doesn't look like a wallet address"); return; }
+        lsSet(LS_PAYOUT, v);
+      };
+      $('instaExport').onclick = async () => {
+        if (!window.confirm("This copies the private key of your play wallet. Anyone with it can take what's inside. Copy it now and store it somewhere safe?")) return;
+        try { await navigator.clipboard.writeText(lsGet(LS_KEY) || ""); showToast("Key copied. Keep it private."); } catch (e) { showToast("Couldn't copy the key"); }
+      };
+
+      $('depGo').onclick = async () => {
+        const amt = parseFloat($('depAmt').value);
+        if (!(amt > 0)) { showToast("Enter an amount to deposit"); return; }
+        if (!isConnected || !userAddress) { showToast("Connect your wallet first, or send coins to the address above from any wallet"); return; }
+        try {
+          await ensurePickleChain();
+          const wei = toWei(amt);
+          let h;
+          if ($('depTok').value === "PKL") {
+            h = await sendTx({ to: PKL_TOKEN, data: "0xa9059cbb" + pad32(insta.address) + wei.toString(16).padStart(64, '0') });
+          } else {
+            h = await sendTx({ to: insta.address, value: "0x" + wei.toString(16) });
+          }
+          showToast("Deposit sent…");
+          await waitForReceipt(h);
+          await refreshInstaBalance();
+          showToast("Deposited ⚡");
+        } catch (err) { showToast((err && err.message) ? err.message.slice(0, 120) : "Deposit failed"); }
+      };
+
+      $('wdMax').onclick = async () => {
+        if ($('wdTok').value === "PKL") { $('wdAmt').value = insta.pklBal; return; }
+        try {
+          const gp = BigInt(await rpc('eth_gasPrice', []));
+          const fee = Number(gp * 12n / 10n * 21000n * 13n / 10n) / 1e18;
+          $('wdAmt').value = Math.max(0, insta.ethBal - fee).toFixed(6);
+        } catch (e) { $('wdAmt').value = Math.max(0, insta.ethBal - 0.0005).toFixed(6); }
+      };
+      $('wdGo').onclick = async () => {
+        const amt = parseFloat($('wdAmt').value);
+        const to = lsGet(LS_PAYOUT) || userAddress;
+        if (!(amt > 0)) { showToast("Enter an amount to withdraw"); return; }
+        if (!isAddr(to)) { showToast("Set your main wallet address under 'Winnings and refunds go to'"); return; }
+        try {
+          const wei = toWei(amt);
+          const h = ($('wdTok').value === "PKL")
+            ? await instaSend({ to: PKL_TOKEN, data: "0xa9059cbb" + pad32(to) + wei.toString(16).padStart(64, '0') })
+            : await instaSend({ to, data: "0x", value: wei });
+          showToast("Withdrawal sent…");
+          await waitForReceipt(h);
+          await refreshInstaBalance();
+          showToast("Withdrawn to " + to.slice(0, 6) + "…" + to.slice(-4));
+        } catch (err) { showToast((err && err.message) ? err.message.slice(0, 120) : "Withdraw failed"); }
+      };
+    }
+
     let pendingClaims = { eth: 0, pkl: 0 };
 
+    function setBidMode(wantInsta) {
+      if (wantInsta) {
+        if (!insta.wallet) { openInsta(); return; }
+        insta.on = true; lsSet(LS_ON, "1");
+      } else {
+        insta.on = false; lsSet(LS_ON, "0");
+      }
+      renderBalanceText();
+    }
+
+    function renderBalanceText() {
+      const on = !!(insta.on && insta.wallet);
+      const mm = document.getElementById('modeMain'), mi = document.getElementById('modeInsta');
+      if (mm && mi) {
+        mm.style.borderColor = on ? '' : 'var(--primary)'; mm.style.background = on ? '' : 'rgba(34,197,94,0.15)';
+        mi.style.borderColor = on ? 'var(--primary)' : ''; mi.style.background = on ? 'rgba(34,197,94,0.15)' : '';
+      }
+      const tier = TIERS[currentTier];
+      const lbl = document.getElementById('balLabel');
+      const el = document.getElementById('userBalanceText');
+      const dropTxt = document.getElementById('dropBtnText');
+      if (insta.on && insta.wallet) {
+        lbl.innerText = "⚡ Insta";
+        const v = tier.token ? insta.pklBal : insta.ethBal;
+        el.innerText = (tier.token ? v.toFixed(2) : v.toFixed(4)) + " " + tier.unit;
+        dropTxt.innerText = "⚡ INSTA DROP (NO POP-UP)";
+      } else {
+        lbl.innerText = "Wallet";
+        const v = tier.token ? userBalanceTok : userBalance;
+        el.innerText = (tier.token ? v.toFixed(2) : v.toFixed(4)) + " " + tier.unit;
+        dropTxt.innerText = "DROP A PICKLE (TAKE THE CROWN)";
+      }
+    }
+    let userBalanceTok = 0;
+
     async function refreshBalance() {
-      if (!userAddress) return;
+      if (insta.wallet) refreshInstaBalance();
+      if (!userAddress) { renderBalanceText(); return; }
       try {
         const tier = TIERS[currentTier];
-        if (tier.token) {
-          const out = await rpc('eth_call', [{ to: tier.token, data: "0x70a08231" + pad32(userAddress) }, 'latest']);
-          userBalance = Number(BigInt(out)) / 1e18;
-          document.getElementById('userBalanceText').innerText = userBalance.toFixed(2) + " " + tier.unit;
-        } else {
-          const balHex = await rpc('eth_getBalance', [userAddress, 'latest']);
-          userBalance = Number(BigInt(balHex)) / 1e18;
-          document.getElementById('userBalanceText').innerText = userBalance.toFixed(4) + " ETH";
-        }
+        const [balHex, tokHex] = await Promise.all([
+          rpc('eth_getBalance', [userAddress, 'latest']),
+          rpc('eth_call', [{ to: PKL_TOKEN, data: "0x70a08231" + pad32(userAddress) }, 'latest'])
+        ]);
+        userBalance = Number(BigInt(balHex)) / 1e18;
+        userBalanceTok = Number(BigInt(tokHex)) / 1e18;
+        renderBalanceText();
       } catch(e) {}
       try {
         const [pe, pp] = await Promise.all([
@@ -1534,8 +1868,9 @@
         showToast("⚠️ Minimum bid for this tier is " + tier.minBid + " " + tier.unit);
         return;
       }
+      if (insta.on && insta.wallet) { return instaPlaceBid(amount); }
       if (!isConnected || !userAddress) {
-        showToast("Connect your wallet first");
+        showToast("Connect your wallet first, or turn on your Insta Wallet (⚡)");
         return;
       }
 
@@ -1629,6 +1964,7 @@
       selectTier(0);
       addLogItem('badge-bid', 'LIVE', 'Contract: 0x720f...0818', 'Pickle Chain ID: 78270');
       refreshAll();
+      initInsta();
     });
   </script>
 </body>
