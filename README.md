@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.jpg" alt="PicklePots logo" width="220"></p>
+
 # PicklePots 🥒
 
 **4-tier, real-time "King of the Jar" game on Pickle Chain.** Drop a bid, reset the timer, and be the last bidder standing to win the pot.
