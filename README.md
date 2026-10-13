@@ -2,13 +2,13 @@
 
 # PicklePots 🥒
 
-**4-tier, real-time "King of the Jar" game on Pickle Chain.** Drop a bid, reset the timer, and be the last bidder standing to win the pot.
+**5-jar, real-time "King of the Jar" game on Pickle Chain.** Drop a bid, reset the timer, and be the last bidder standing to win the pot.
 
 **Live app:** https://picklepots.xyz (reads rounds directly from Pickle Chain testnet)
 
 ## How it works
 
-Each tier runs its own independent round, timer and pot. Every bid makes you the King of the Jar and extends the timer (up to the tier's cap). When the timer runs out, the last bidder wins.
+Each tier runs its own independent round, timer and pot. Every bid makes you the King of the Jar and extends the timer (up to the tier's cap). When the timer runs out, the last bidder wins. If only one player entered the round, they are refunded in full.
 
 | Tier | Name | Min bid | Round | Extension per bid | Max timer |
 |------|------|---------|-------|-------------------|-----------|
@@ -16,12 +16,17 @@ Each tier runs its own independent round, timer and pot. Every bid makes you the
 | 1 | Baby Gherkin | 0.0005 ETH (~$1.25) | 30s | +15s | 60s |
 | 2 | Classic Dill | 0.002 ETH (~$5.00) | 45s | +15s | 90s |
 | 3 | Spicy Brine | 0.02 ETH (~$50.00) | 60s | +20s | 120s |
+| 4 | PKL Barrel | 10 PKL (testnet token) | 45s | +15s | 90s |
 
 ### Pot distribution (per round)
+
+With two or more different bidders:
 
 - **90%** to the winning King of the Jar
 - **5%** seeds the next round of that tier
 - **5%** protocol fee, sent to the fee recipient or routed through `PickleFeeRouter`
+
+With a single bidder (even if they bid several times) there is nobody to beat: they get their bids back in full, no fee is taken, and any seed already in the pot rolls into the next round. If a winner's address rejects payment, the funds are credited to them and they can pull them with `claim(token)`, so a jar can never be frozen.
 
 ## Network
 
@@ -43,15 +48,22 @@ curl https://rpc.picklechain.xyz \
 
 ## Deployed contract
 
-- **Address:** `0xe9712892ab4607510bcb545f1b1377b69f6ae589`
-- **Deployment tx:** `0xa8dca7b28a541ccc2821d928aa156478c12ec8ec8d2ef75e137d3e32a5c4b507`
-- **Block:** #7,223,709
-- **Protocol fee recipient:** `0x903d2AD79bBa6BB121FdF2102cA80469C6b735eb`
+- **PicklePots v2 (proxy, use this address):** `0x720fb1562e50bbe3530b973ecf1e26379ec60818`
+- **Implementation:** `0x53950f621de0b475ef90213d6dee4802832f1068`
+- **Owner / protocol fee recipient:** `0x903d2AD79bBa6BB121FdF2102cA80469C6b735eb`
+- **PKL token (testnet):** `0x8d1Ab7dD27a5Fd87452748012Dc7f319f51b877e`
+
+v2 is a UUPS upgradeable proxy (OpenZeppelin v5), so the address stays the same across updates. Upgrades are owner-only, ownership transfers are two-step, and `freezeUpgrades()` permanently locks the logic once the design is final.
+
+The earlier v1 contract (`0xe9712892ab4607510bcb545f1b1377b69f6ae589`) is retired.
 
 ## Repository layout
 
 ```
-contracts/PicklePots.sol        Solidity 0.8.20 contract (4 tiers)
+contracts/PicklePotsV2.sol      Current upgradeable contract (5 jars, solo refund, PKL jar)
+contracts/PicklePots.sol        Retired v1 contract (kept for reference)
+test/PicklePotsV2.test.js       Hardhat tests (11 scenarios)
+scripts/deploy_v2.js            Deploys implementation + proxy
 scripts/deploy_picklepots.js    Hardhat deploy script for Pickle Chain
 hardhat.config.js               Hardhat config (network "pickle", chain 78270)
 index.html                      Standalone single-page dApp (static hosting)

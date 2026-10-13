@@ -197,15 +197,21 @@
 
     .tier-bar {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 0.75rem;
       margin-bottom: 1.5rem;
     }
 
+    @media (max-width: 1000px) {
+      .tier-bar {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
     @media (max-width: 800px) {
       .tier-bar {
         grid-template-columns: repeat(2, 1fr);
       }
+      .tier-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
     }
 
     .tier-card {
@@ -767,7 +773,7 @@
         <span class="status-dot"></span>
         <span>Pickle Chain (78270 / 0x131be)</span>
         <span style="color:#64748b">•</span>
-        <span style="color:var(--primary); font-family:var(--font-mono); font-size:0.75rem;">0xe971...e589</span>
+        <span style="color:var(--primary); font-family:var(--font-mono); font-size:0.75rem;">0x720f...0818</span>
       </div>
 
       <div class="header-actions">
@@ -800,6 +806,11 @@
         <span class="tier-badge">Tier 3 • Whale</span>
         <div class="tier-title">Spicy Brine 🌶️</div>
         <div class="tier-stake">Min: 0.02 ETH (~$50.00)</div>
+      </div>
+      <div class="tier-card" id="tierCard-4" onclick="selectTier(4)">
+        <span class="tier-badge">Tier 4 • PKL</span>
+        <div class="tier-title">PKL Barrel 🛢️</div>
+        <div class="tier-stake">Min: 10 PKL (test token)</div>
       </div>
     </div>
 
@@ -855,6 +866,14 @@
           </div>
         </div>
 
+        <div id="roundNote" style="font-size:0.78rem; color:var(--text-muted); margin:-0.25rem 0 0.9rem; line-height:1.4;"></div>
+        <div id="settleRow" style="display:none; margin-bottom:0.9rem;">
+          <button class="btn btn-primary btn-sm" id="settleBtn" onclick="settleRound()" style="width:100%;">⏱️ Round ended — settle &amp; pay the King</button>
+        </div>
+        <div id="claimRow" style="display:none; margin-bottom:0.9rem;">
+          <button class="btn btn-secondary btn-sm" id="claimBtn" onclick="claimPending()" style="width:100%;"></button>
+        </div>
+
         <div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
             <span style="font-size:0.85rem; font-weight:700; color:#cbd5e1;">Select Bid Amount</span>
@@ -864,7 +883,7 @@
 
           <div class="bid-input-wrap">
             <input type="number" id="bidAmountInput" class="bid-input" value="0.0001" step="0.0001" min="0.0001">
-            <span class="bid-unit">ETH</span>
+            <span class="bid-unit" id="bidUnit">ETH</span>
           </div>
 
           <button class="btn-drop-bid" id="dropBidBtn" onclick="placeBid()">
@@ -892,7 +911,7 @@
             <div style="font-size:1.2rem; font-weight:800; font-family:var(--font-mono);" id="totalRoundBids">0</div>
           </div>
           <div style="background:#0d1512; border:1px solid var(--border); padding:0.75rem 1rem; border-radius:8px;">
-            <div style="font-size:0.7rem; color:#889990; text-transform:uppercase;">Winner Prize (90%)</div>
+            <div style="font-size:0.7rem; color:#889990; text-transform:uppercase;" id="winnerLabel">Winner Prize (90%)</div>
             <div style="font-size:1.2rem; font-weight:800; font-family:var(--font-mono); color:var(--gold);" id="winnerEstimate">0.000 ETH</div>
           </div>
         </div>
@@ -911,16 +930,20 @@
     const PICKLE_CHAIN_ID_HEX = "0x131be";
     const PICKLE_RPC_URL = "https://rpc.picklechain.xyz";
     const PICKLE_EXPLORER = "https://explorer.picklechain.xyz";
-    const CONTRACT_ADDRESS = "0xe9712892ab4607510bcb545f1b1377b69f6ae589";
+    const CONTRACT_ADDRESS = "0x720fb1562e50bbe3530b973ecf1e26379ec60818";
     const WC_PROJECT_ID = "bd651e85e9e957d0d799491ea0dd2eaa";
     const WC_SCRIPT = "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.21.1/dist/index.umd.js";
     const PICKLE_CHAIN_ID = 78270;
+    const PKL_TOKEN = "0x8d1Ab7dD27a5Fd87452748012Dc7f319f51b877e"; // PKL on Pickle Chain testnet
+    const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+    const pad32 = (hex) => hex.replace(/^0x/, "").toLowerCase().padStart(64, "0");
 
     const TIERS = [
-      { id: 0, name: "Cocktail Jar 🍸", emoji: "🍸", minBid: 0.0001, pace: "Each bid adds +10s (max 45s)", presets: [0.0001, 0.0002, 0.0005, 0.001], defaultTimer: 25000, maxTimer: 45000 },
-      { id: 1, name: "Baby Gherkin 🥒", emoji: "🥒", minBid: 0.0005, pace: "Each bid adds +15s (max 60s)", presets: [0.0005, 0.001, 0.002, 0.005], defaultTimer: 30000, maxTimer: 60000 },
-      { id: 2, name: "Classic Dill 🫙", emoji: "🫙", minBid: 0.002, pace: "Each bid adds +15s (max 90s)", presets: [0.002, 0.005, 0.01, 0.02], defaultTimer: 45000, maxTimer: 90000 },
-      { id: 3, name: "Spicy Brine 🌶️", emoji: "🌶️", minBid: 0.02, pace: "Each bid adds +20s (max 120s)", presets: [0.02, 0.05, 0.10, 0.25], defaultTimer: 60000, maxTimer: 120000 }
+      { id: 0, unit: "ETH", name: "Cocktail Jar 🍸", emoji: "🍸", minBid: 0.0001, pace: "Each bid adds +10s (max 45s)", presets: [0.0001, 0.0002, 0.0005, 0.001], defaultTimer: 25000, maxTimer: 45000 },
+      { id: 1, unit: "ETH", name: "Baby Gherkin 🥒", emoji: "🥒", minBid: 0.0005, pace: "Each bid adds +15s (max 60s)", presets: [0.0005, 0.001, 0.002, 0.005], defaultTimer: 30000, maxTimer: 60000 },
+      { id: 2, unit: "ETH", name: "Classic Dill 🫙", emoji: "🫙", minBid: 0.002, pace: "Each bid adds +15s (max 90s)", presets: [0.002, 0.005, 0.01, 0.02], defaultTimer: 45000, maxTimer: 90000 },
+      { id: 3, unit: "ETH", name: "Spicy Brine 🌶️", emoji: "🌶️", minBid: 0.02, pace: "Each bid adds +20s (max 120s)", presets: [0.02, 0.05, 0.10, 0.25], defaultTimer: 60000, maxTimer: 120000 },
+      { id: 4, unit: "PKL", token: PKL_TOKEN, name: "PKL Barrel 🛢️", emoji: "🛢️", minBid: 10, pace: "Each bid adds +15s (max 90s)", presets: [10, 25, 50, 100], defaultTimer: 45000, maxTimer: 90000 }
     ];
 
     let currentTier = 0;
@@ -931,7 +954,8 @@
     // Live state, read from the contract via eth_call (never simulated).
     let tierStates = TIERS.map(() => ({
       loaded: false, roundId: 0, potAmount: 0, leader: null, timeLeftMs: 0,
-      totalBids: 0, isExpired: false, fetchedAt: 0, kingSince: 0
+      totalBids: 0, isExpired: false, fetchedAt: 0, kingSince: 0,
+      unique: 0, seed: 0, last: null
     }));
     let liveOk = false;
 
@@ -978,6 +1002,19 @@
       s.isExpired = r.isExpired;
       s.fetchedAt = Date.now();
       if (s.leader !== prevLeader) s.kingSince = s.leader ? Date.now() : 0;
+      try {
+        const arg = tierId.toString(16).padStart(64, "0");
+        const [ex, la] = await Promise.all([
+          rpc("eth_call", [{ to: CONTRACT_ADDRESS, data: "0x47201c1c" + arg }, "latest"]),
+          rpc("eth_call", [{ to: CONTRACT_ADDRESS, data: "0x6a52936d" + arg }, "latest"])
+        ]);
+        const ew = ex.slice(2).match(/.{64}/g);
+        s.unique = Number(BigInt("0x" + ew[0]));
+        s.seed = Number(BigInt("0x" + ew[1])) / 1e18;
+        const lw = la.slice(2).match(/.{64}/g);
+        const lid = Number(BigInt("0x" + lw[0]));
+        s.last = lid ? { winner: "0x" + lw[1].slice(24), payout: Number(BigInt("0x" + lw[2])) / 1e18, refunded: BigInt("0x" + lw[3]) === 1n } : null;
+      } catch (e) { /* older contract without these views */ }
       s.loaded = true;
     }
 
@@ -1006,6 +1043,7 @@
         c.classList.toggle('active', idx === tId);
       });
       updateTierUI();
+      refreshBalance();
     }
 
     function remainingMs(s) {
@@ -1017,7 +1055,8 @@
       const state = tierStates[currentTier];
 
       document.getElementById('activeTierName').innerText = tier.name;
-      document.getElementById('minBidLabel').innerText = tier.minBid + " ETH";
+      document.getElementById('minBidLabel').innerText = tier.minBid + " " + tier.unit;
+      document.getElementById('bidUnit').innerText = tier.unit;
       document.getElementById('tierPaceLabel').innerText = tier.pace;
       const input = document.getElementById('bidAmountInput');
       if (input.dataset.tier !== String(currentTier)) {
@@ -1028,7 +1067,7 @@
         tier.presets.forEach((amt, idx) => {
           const btn = document.createElement('button');
           btn.className = 'preset-btn' + (idx === 0 ? ' active' : '');
-          btn.innerText = amt + ' ETH';
+          btn.innerText = amt + ' ' + tier.unit;
           btn.onclick = () => {
             document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -1041,14 +1080,50 @@
       input.step = (tier.minBid / 2).toString();
 
       document.getElementById('roundNumber').innerText = state.loaded ? state.roundId : "–";
-      document.getElementById('potDisplay').innerText = state.loaded ? state.potAmount.toFixed(4) + " ETH" : "…";
-      document.getElementById('potUsdDisplay').innerText = "Testnet ETH · no cash value";
+      document.getElementById('potDisplay').innerText = state.loaded ? fmtAmt(state.potAmount, tier.unit) + " " + tier.unit : "…";
+      document.getElementById('potUsdDisplay').innerText = "Testnet " + tier.unit + " · no cash value";
       document.getElementById('kingAddress').innerText = !state.loaded ? "Loading…" :
         (state.leader ? (state.leader.slice(0,6) + "..." + state.leader.slice(-4)) : "No King Yet (Be First!)");
       document.getElementById('totalRoundBids').innerText = state.loaded ? state.totalBids : "–";
-      document.getElementById('winnerEstimate').innerText = (state.potAmount * 0.9).toFixed(4) + " ETH";
+      const dp = tier.unit === "PKL" ? 2 : 4;
+      if (state.loaded && state.totalBids > 0 && state.unique < 2) {
+        document.getElementById('winnerLabel').innerText = "Solo round: refund";
+        document.getElementById('winnerEstimate').innerText = fmtAmt(Math.max(0, state.potAmount - state.seed), tier.unit) + " " + tier.unit;
+      } else {
+        document.getElementById('winnerLabel').innerText = "Winner Prize (90%)";
+        document.getElementById('winnerEstimate').innerText = fmtAmt(state.potAmount * 0.9, tier.unit) + " " + tier.unit;
+      }
+      updateRoundNote();
       renderTimer();
       updateBrineFillLevel();
+    }
+
+    const fmtAmt = (v, unit) => unit === "PKL" ? v.toFixed(2) : (v > 0 && v < 0.001 ? v.toFixed(6) : v.toFixed(4));
+    const shortAddr = (a) => a.slice(0, 6) + "..." + a.slice(-4);
+
+    function updateRoundNote() {
+      const tier = TIERS[currentTier];
+      const st = tierStates[currentTier];
+      const el = document.getElementById('roundNote');
+      if (!st.loaded) { el.innerText = ""; return; }
+      const dp = tier.unit === "PKL" ? 2 : 6;
+      let html = "";
+      if (st.totalBids === 0) {
+        html = "Be first in. The last bidder when the timer ends wins 90% of the pot. If only one player enters, they get their bids back in full.";
+      } else if (st.unique < 2) {
+        html = "Only one player so far. If nobody else joins, the round ends with a <b>full refund</b> (no fee) and the seed rolls into the next round.";
+      } else {
+        html = st.unique + " players in. Last bidder wins 90% · 5% seeds the next round · 5% protocol fee.";
+      }
+      if (st.seed > 0) html += " Seeded with " + st.seed.toFixed(dp) + " " + tier.unit + ".";
+      if (st.last) {
+        html += "<br>Last round: " + (st.last.refunded
+          ? "solo bidder refunded " + st.last.payout.toFixed(dp) + " " + tier.unit
+          : shortAddr(st.last.winner) + " won " + st.last.payout.toFixed(dp) + " " + tier.unit);
+      }
+      el.innerHTML = html;
+      const settle = document.getElementById('settleRow');
+      settle.style.display = (st.totalBids > 0 && remainingMs(st) === 0) ? "block" : "none";
     }
 
     function renderTimer() {
@@ -1162,7 +1237,7 @@
 
     function clearFeed() {
       document.getElementById('feedLogs').innerHTML = '';
-      addLogItem('badge-bid', 'IDLE', 'PicklePots live at 0xe971...e589', 'Reading rounds from Pickle Chain');
+      addLogItem('badge-bid', 'IDLE', 'PicklePots live at 0x720f...0818', 'Reading rounds from Pickle Chain');
     }
 
     // ---- Wallet connection: detected browser wallets (EIP-6963) + WalletConnect ----
@@ -1359,14 +1434,35 @@
       setTimeout(openWalletPicker, 80);
     }
 
+    let pendingClaims = { eth: 0, pkl: 0 };
+
     async function refreshBalance() {
-      if (userAddress) {
-        try {
+      if (!userAddress) return;
+      try {
+        const tier = TIERS[currentTier];
+        if (tier.token) {
+          const out = await rpc('eth_call', [{ to: tier.token, data: "0x70a08231" + pad32(userAddress) }, 'latest']);
+          userBalance = Number(BigInt(out)) / 1e18;
+          document.getElementById('userBalanceText').innerText = userBalance.toFixed(2) + " " + tier.unit;
+        } else {
           const balHex = await rpc('eth_getBalance', [userAddress, 'latest']);
           userBalance = Number(BigInt(balHex)) / 1e18;
           document.getElementById('userBalanceText').innerText = userBalance.toFixed(4) + " ETH";
-        } catch(e) {}
-      }
+        }
+      } catch(e) {}
+      try {
+        const [pe, pp] = await Promise.all([
+          rpc('eth_call', [{ to: CONTRACT_ADDRESS, data: "0x19bc9ae8" + pad32(ZERO_ADDR) + pad32(userAddress) }, 'latest']),
+          rpc('eth_call', [{ to: CONTRACT_ADDRESS, data: "0x19bc9ae8" + pad32(PKL_TOKEN) + pad32(userAddress) }, 'latest'])
+        ]);
+        pendingClaims = { eth: Number(BigInt(pe)) / 1e18, pkl: Number(BigInt(pp)) / 1e18 };
+      } catch(e) {}
+      const row = document.getElementById('claimRow');
+      const parts = [];
+      if (pendingClaims.eth > 0) parts.push(pendingClaims.eth.toFixed(4) + " ETH");
+      if (pendingClaims.pkl > 0) parts.push(pendingClaims.pkl.toFixed(2) + " PKL");
+      row.style.display = parts.length ? "block" : "none";
+      document.getElementById('claimBtn').innerText = "Claim waiting winnings: " + parts.join(" + ");
     }
 
     async function waitForReceipt(hash) {
@@ -1378,13 +1474,17 @@
       return null;
     }
 
+    async function sendTx(tx) {
+      return activeProvider.request({ method: 'eth_sendTransaction', params: [Object.assign({ from: userAddress }, tx)] });
+    }
+
     async function placeBid() {
       const input = document.getElementById('bidAmountInput');
       const amount = parseFloat(input.value);
       const tier = TIERS[currentTier];
 
       if (isNaN(amount) || amount < tier.minBid) {
-        showToast("⚠️ Minimum bid for this tier is " + tier.minBid + " ETH");
+        showToast("⚠️ Minimum bid for this tier is " + tier.minBid + " " + tier.unit);
         return;
       }
       if (!isConnected || !userAddress) {
@@ -1394,20 +1494,33 @@
 
       try {
         await ensurePickleChain();
-        const weiValue = "0x" + BigInt(Math.round(amount * 1e18)).toString(16);
-        const data = "0x5187338c" + currentTier.toString(16).padStart(64, '0');
+        const weiAmount = BigInt(Math.round(amount * 1e6)) * 1000000000000n; // amount * 1e18, avoids float overflow
+        const tierArg = currentTier.toString(16).padStart(64, '0');
+        let txHash;
 
-        showToast("Confirm the bid in your wallet…");
-        const txHash = await activeProvider.request({
-          method: 'eth_sendTransaction',
-          params: [{ from: userAddress, to: CONTRACT_ADDRESS, value: weiValue, data }]
-        });
+        if (tier.token) {
+          // PKL jar: approve once (covers the next several bids), then bid with dropBidToken
+          const allowanceHex = await rpc('eth_call', [{ to: tier.token, data: "0xdd62ed3e" + pad32(userAddress) + pad32(CONTRACT_ADDRESS) }, 'latest']);
+          if (BigInt(allowanceHex) < weiAmount) {
+            showToast("Step 1 of 2: approve PKL for the jar…");
+            const approveAmt = weiAmount * 20n;
+            const ah = await sendTx({ to: tier.token, data: "0x095ea7b3" + pad32(CONTRACT_ADDRESS) + approveAmt.toString(16).padStart(64, '0') });
+            const ar = await waitForReceipt(ah);
+            if (!ar || ar.status !== "0x1") { showToast("Approval failed or still pending"); return; }
+          }
+          showToast("Confirm the bid in your wallet…");
+          txHash = await sendTx({ to: CONTRACT_ADDRESS, data: "0xbac3ade0" + tierArg + pad32(ZERO_ADDR) + weiAmount.toString(16).padStart(64, '0') });
+        } else {
+          showToast("Confirm the bid in your wallet…");
+          txHash = await sendTx({ to: CONTRACT_ADDRESS, value: "0x" + weiAmount.toString(16), data: "0x5187338c" + tierArg });
+        }
+
         showToast("Bid sent · waiting for confirmation…");
         const receipt = await waitForReceipt(txHash);
         if (receipt && receipt.status === "0x1") {
           animatePickleDrop(true);
           showToast("🥒 Pickle Dropped!");
-          addLogItem('badge-crown', 'BID', `${amount} ETH on ${tier.name}`, `Tx ${txHash.slice(0,14)}…`);
+          addLogItem('badge-crown', 'BID', `${amount} ${tier.unit} on ${tier.name}`, `Tx ${txHash.slice(0,14)}…`);
         } else if (receipt) {
           showToast("Bid reverted on-chain");
           addLogItem('badge-bid', 'REVERTED', `Bid on ${tier.name}`, `Tx ${txHash.slice(0,14)}…`);
@@ -1418,6 +1531,36 @@
         updateTierUI();
       } catch (err) {
         console.error(err);
+        showToast((err && err.message) ? err.message.slice(0, 120) : "Transaction failed");
+      }
+    }
+
+    async function settleRound() {
+      if (!isConnected || !userAddress) { showToast("Connect your wallet to settle the round"); return; }
+      try {
+        await ensurePickleChain();
+        showToast("Confirm in your wallet…");
+        const h = await sendTx({ to: CONTRACT_ADDRESS, data: "0x590eeb7e" + currentTier.toString(16).padStart(64, '0') });
+        const r = await waitForReceipt(h);
+        showToast(r && r.status === "0x1" ? "Round settled" : "Settle failed (already settled?)");
+        await Promise.all([fetchRound(currentTier), refreshBalance()]);
+        updateTierUI();
+      } catch (err) {
+        showToast((err && err.message) ? err.message.slice(0, 120) : "Transaction failed");
+      }
+    }
+
+    async function claimPending() {
+      if (!isConnected || !userAddress) return;
+      try {
+        await ensurePickleChain();
+        const token = (pendingClaims.eth > 0) ? ZERO_ADDR : PKL_TOKEN;
+        showToast("Confirm the claim in your wallet…");
+        const h = await sendTx({ to: CONTRACT_ADDRESS, data: "0x1e83409a" + pad32(token) });
+        const r = await waitForReceipt(h);
+        showToast(r && r.status === "0x1" ? "Claimed" : "Claim failed");
+        await refreshBalance();
+      } catch (err) {
         showToast((err && err.message) ? err.message.slice(0, 120) : "Transaction failed");
       }
     }
@@ -1437,7 +1580,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       selectTier(0);
-      addLogItem('badge-bid', 'LIVE', 'Contract: 0xe971...e589', 'Pickle Chain ID: 78270');
+      addLogItem('badge-bid', 'LIVE', 'Contract: 0x720f...0818', 'Pickle Chain ID: 78270');
       refreshAll();
     });
   </script>
