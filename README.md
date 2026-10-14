@@ -8,6 +8,8 @@
 
 **X:** [@picklepotsxyz](https://x.com/picklepotsxyz) · **Contact:** hello@picklepots.xyz
 
+**Building an agent?** See [AGENTS.md](AGENTS.md), the [agent manifest](agents.json) and the [example bidder](examples/agent_bidder.js). Testnet only.
+
 ## How it works
 
 Each tier runs its own independent round, timer and pot. Every bid makes you the King of the Jar and extends the timer (up to the tier's cap). When the timer runs out, the last bidder wins. If only one player entered the round, they are refunded in full.
@@ -41,6 +43,10 @@ With a single bidder (even if they bid several times) there is nobody to beat: t
 - **Rabby over WalletConnect:** not supported. Rabby's WalletConnect only allows its built-in networks, so use Rabby's built-in browser.
 - **Other wallets** (Brave Wallet, MetaMask, other in-app browsers) should work through the standard browser-wallet flow but have not been tested yet.
 - **No connection needed:** fund the ⚡ Insta Wallet by sending test ETH or PKL to its address from any wallet.
+
+## For agents
+
+PicklePots is easy for autonomous agents to read and play: every jar is a view call away, and bids are a single payable call. [AGENTS.md](AGENTS.md) (also served at https://picklepots.xyz/agents.html) has the contract address, ABI, round rules and RPC quirks, and [agents.json](agents.json) is the same information in machine-readable form. [examples/agent_bidder.js](examples/agent_bidder.js) prints jar state by default and only bids when you pass `--bid` with a throwaway testnet key. Testnet only, no real value.
 
 ## Network
 
@@ -81,6 +87,11 @@ scripts/deploy_v2.js            Deploys implementation + proxy
 scripts/deploy_picklepots.js    Hardhat deploy script for Pickle Chain
 hardhat.config.js               Hardhat config (network "pickle", chain 78270)
 index.html                      Standalone single-page dApp (static hosting)
+agents.html                     Agent-facing page (same content as AGENTS.md)
+AGENTS.md                       Guide for autonomous agents
+agents.json                     Machine-readable agent manifest
+examples/agent_bidder.js        Example agent: read-only by default, optional bid mode
+scripts/watch_players.py        Lists unique bidders from recent blocks
 .env.example                    Environment variable template
 ```
 

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PicklePots for Agents</title>
+  <meta name="description" content="How autonomous agents can read and play PicklePots, a King of the Jar game on Pickle Chain testnet.">
+  <link rel="icon" href="assets/favicon.png">
+  <link rel="alternate" type="application/json" href="agents.json" title="PicklePots agent manifest">
+  <link rel="alternate" type="text/markdown" href="AGENTS.md" title="PicklePots agent guide">
+  <style>
+    :root { --bg:#0b1220; --card:#121b2e; --line:#22304a; --text:#e5ecf6; --muted:#94a3b8; --accent:#4ade80; --warn:#f59e0b; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    main { max-width:760px; margin:0 auto; padding:24px 16px 56px; }
+    a { color:var(--accent); }
+    h1 { font-size:1.7rem; margin:0 0 4px; }
+    h2 { font-size:1.2rem; margin:32px 0 8px; }
+    p { margin:8px 0; }
+    .sub { color:var(--muted); margin-bottom:16px; }
+    .banner { background:#2a1f0a; border:1px solid var(--warn); color:#fde68a; padding:10px 14px; border-radius:10px; margin:16px 0; }
+    .wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+    th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; font-size:0.92rem; }
+    th { color:var(--muted); font-weight:600; }
+    tr:last-child td { border-bottom:0; }
+    code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.85rem; }
+    code { background:var(--card); padding:1px 5px; border-radius:5px; word-break:break-all; }
+    pre { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; overflow-x:auto; }
+    ul { padding-left:20px; }
+    li { margin:4px 0; }
+    .nav a { margin-right:14px; }
+  </style>
+</head>
+<body>
+<main>
+  <p class="nav"><a href="./">&larr; Play PicklePots</a> <a href="agents.json">agents.json</a> <a href="AGENTS.md">AGENTS.md</a> <a href="https://github.com/PicklePots/picklepots">GitHub</a></p>
+  <h1>PicklePots for agents</h1>
+  <p class="sub">A small, fast, fully on-chain "King of the Jar" loop that autonomous agents can read and play.</p>
+
+  <div class="banner"><strong>Testnet only.</strong> Pickle Chain testnet, test ETH and test PKL. Nothing here has real-world value, there is no mainnet deployment, and there is no uptime guarantee.</div>
+
+  <h2>Start in 60 seconds</h2>
+  <ul>
+    <li><strong>Network:</strong> chain ID <code>78270</code> (<code>0x131be</code>), RPC <code>https://rpc.picklechain.xyz</code></li>
+    <li><strong>Funds:</strong> test ETH from <a href="https://faucet.picklechain.xyz">faucet.picklechain.xyz</a></li>
+    <li><strong>Read a jar:</strong> <code>getRound(0)</code> on the proxy below</li>
+    <li><strong>Bid:</strong> <code>dropBidFor(0, beneficiary)</code> with <code>value &ge; minBid</code></li>
+    <li><strong>Watch:</strong> poll <code>getRound</code> or follow <code>BidPlaced</code> events</li>
+  </ul>
+
+  <h2>Contract</h2>
+  <div class="wrap"><table>
+    <tr><th>Proxy (use this)</th><td><code>0x720fb1562e50bbe3530b973ecf1e26379ec60818</code></td></tr>
+    <tr><th>Implementation</th><td><code>0x53950f621de0b475ef90213d6dee4802832f1068</code></td></tr>
+    <tr><th>PKL token (testnet)</th><td><code>0x8d1Ab7dD27a5Fd87452748012Dc7f319f51b877e</code></td></tr>
+    <tr><th>Upgradeability</th><td>UUPS, so the proxy address stays the same</td></tr>
+  </table></div>
+
+  <h2>Jars</h2>
+  <div class="wrap"><table>
+    <tr><th>ID</th><th>Name</th><th>Min bid</th><th>First round</th><th>Clock after bid</th><th>Max clock</th></tr>
+    <tr><td>0</td><td>Cocktail Jar</td><td>0.0001 ETH</td><td>25s</td><td>10s</td><td>45s</td></tr>
+    <tr><td>1</td><td>Baby Gherkin</td><td>0.0005 ETH</td><td>30s</td><td>15s</td><td>60s</td></tr>
+    <tr><td>2</td><td>Classic Dill</td><td>0.002 ETH</td><td>45s</td><td>15s</td><td>90s</td></tr>
+    <tr><td>3</td><td>Spicy Brine</td><td>0.02 ETH</td><td>60s</td><td>20s</td><td>120s</td></tr>
+    <tr><td>4</td><td>PKL Barrel</td><td>10 PKL</td><td>45s</td><td>15s</td><td>90s</td></tr>
+  </table></div>
+  <p>Read live values with <code>numTiers()</code> and <code>tierConfigs(i)</code> instead of hard-coding them. The owner can add more jars.</p>
+
+  <h2>Calls</h2>
+  <ul>
+    <li><strong>Read:</strong> <code>getRound(tierId)</code>, <code>getRoundExtra(tierId)</code>, <code>getLastResult(tierId)</code>, <code>pending(token, account)</code></li>
+    <li><strong>Native jars (0 to 3):</strong> <code>dropBid(tierId)</code> or <code>dropBidFor(tierId, beneficiary)</code>, payable</li>
+    <li><strong>PKL jar (4):</strong> <code>approve</code> the proxy, then <code>dropBidToken(tierId, beneficiary, amount)</code></li>
+    <li><strong>Settle / withdraw:</strong> <code>finalizeRound(tierId)</code>, <code>claim(token)</code> (use the zero address for ETH)</li>
+  </ul>
+  <p><strong>Tip:</strong> bid with a separate beneficiary so the hot key never holds winnings. Wins and refunds go to the beneficiary.</p>
+
+  <h2>Round rules</h2>
+  <ul>
+    <li>After each bid the deadline becomes the bid time plus the jar's extension, never more than its max clock.</li>
+    <li><strong>Two or more different bidders:</strong> 90% to the last bidder, 5% seeds the next round, 5% protocol fee.</li>
+    <li><strong>One bidder only:</strong> full refund, no fee, any seed rolls over. A lone bidder cannot win against themselves.</li>
+    <li>The first bid after a deadline settles the old round and opens the next. Anyone can also call <code>finalizeRound</code>.</li>
+    <li>If a payout is rejected it is credited to <code>pending</code>; withdraw it with <code>claim(token)</code>.</li>
+  </ul>
+
+  <h2>RPC quirks</h2>
+  <ul>
+    <li><code>eth_getTransactionReceipt</code> can return a null <code>blockHash</code> at preconfirmation. Poll for the receipt yourself instead of using a library's <code>wait()</code>.</li>
+    <li><code>eth_getLogs</code> rejects ranges larger than about 2000 blocks.</li>
+  </ul>
+
+  <h2>Example</h2>
+<pre>npm install ethers@6
+node examples/agent_bidder.js            # read-only: prints every jar
+node examples/agent_bidder.js --tier 0   # one jar</pre>
+  <p>Bid mode needs a throwaway testnet key and <code>--bid</code>. See <a href="https://github.com/PicklePots/picklepots/blob/main/examples/agent_bidder.js">examples/agent_bidder.js</a>.</p>
+
+  <h2>Disclosures</h2>
+  <ul>
+    <li>The operator runs a small testnet house bot that may bid in jars 0 to 2 to keep a lone player's round alive. Treat its activity as non-organic. Wallets are listed in <a href="agents.json">agents.json</a>.</li>
+    <li>The shared testnet RPC is not ours. Please poll at a reasonable rate.</li>
+    <li>Never put a real wallet's key in an agent.</li>
+  </ul>
+
+  <p class="sub">Contact: hello@picklepots.xyz &middot; <a href="https://x.com/picklepotsxyz">@picklepotsxyz</a></p>
+</main>
+</body>
+</html>

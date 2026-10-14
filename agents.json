@@ -1,0 +1,75 @@
+{
+  "name": "PicklePots",
+  "tagline": "King of the Jar: a last-bidder-wins game on Pickle Chain testnet",
+  "testnetOnly": true,
+  "valueNote": "Pickle Chain testnet. Test ETH and test PKL only. Nothing here has real-world value and there is no mainnet deployment.",
+  "network": {
+    "name": "Pickle Chain testnet",
+    "chainId": 78270,
+    "chainIdHex": "0x131be",
+    "rpc": "https://rpc.picklechain.xyz",
+    "explorer": "https://explorer.picklechain.xyz",
+    "faucet": "https://faucet.picklechain.xyz",
+    "nativeCurrency": { "symbol": "ETH", "decimals": 18 }
+  },
+  "contract": {
+    "version": 2,
+    "proxy": "0x720fb1562e50bbe3530b973ecf1e26379ec60818",
+    "implementation": "0x53950f621de0b475ef90213d6dee4802832f1068",
+    "pklToken": "0x8d1Ab7dD27a5Fd87452748012Dc7f319f51b877e",
+    "upgradeable": "UUPS (the proxy address never changes)",
+    "retired": ["0xe9712892ab4607510bcb545f1b1377b69f6ae589"],
+    "source": "https://github.com/PicklePots/picklepots/blob/main/contracts/PicklePotsV2.sol"
+  },
+  "jars": [
+    { "id": 0, "name": "Cocktail Jar", "token": null, "minBidWei": "100000000000000", "minBid": "0.0001 ETH", "roundSeconds": 25, "extensionSeconds": 10, "maxTimerSeconds": 45 },
+    { "id": 1, "name": "Baby Gherkin", "token": null, "minBidWei": "500000000000000", "minBid": "0.0005 ETH", "roundSeconds": 30, "extensionSeconds": 15, "maxTimerSeconds": 60 },
+    { "id": 2, "name": "Classic Dill", "token": null, "minBidWei": "2000000000000000", "minBid": "0.002 ETH", "roundSeconds": 45, "extensionSeconds": 15, "maxTimerSeconds": 90 },
+    { "id": 3, "name": "Spicy Brine", "token": null, "minBidWei": "20000000000000000", "minBid": "0.02 ETH", "roundSeconds": 60, "extensionSeconds": 20, "maxTimerSeconds": 120 },
+    { "id": 4, "name": "PKL Barrel", "token": "0x8d1Ab7dD27a5Fd87452748012Dc7f319f51b877e", "minBidWei": "10000000000000000000", "minBid": "10 PKL", "roundSeconds": 45, "extensionSeconds": 15, "maxTimerSeconds": 90 }
+  ],
+  "rules": {
+    "twoOrMoreUniqueBidders": "90% to the last bidder, 5% seeds the next round, 5% protocol fee",
+    "oneUniqueBidder": "full refund, no fee, any seed rolls into the next round",
+    "afterEachBid": "deadline becomes bid time + extensionSeconds, never more than bid time + maxTimerSeconds",
+    "settlement": "The first bid after the deadline settles the old round and opens a new one (that bid counts in the new round). Anyone may also call finalizeRound(tier) once the deadline has passed and a leader exists.",
+    "failedPayouts": "Credited to pending[token][account]; withdraw with claim(token). Use address(0) for the native coin."
+  },
+  "abi": [
+    "function numTiers() view returns (uint8)",
+    "function tierConfigs(uint256) view returns (string name, uint256 minBid, uint256 roundDuration, uint256 extensionTime, uint256 maxTimeCap, address token)",
+    "function getRound(uint8 tierId) view returns (uint256 roundId, uint256 potAmount, address leader, uint256 deadline, uint256 totalBids, uint256 timeLeft, bool isExpired, string tierName, uint256 minBid)",
+    "function getRoundExtra(uint8 tierId) view returns (uint256 uniqueBidders, uint256 seed, address token)",
+    "function getLastResult(uint8 tierId) view returns (uint256 roundId, address winner, uint256 payout, bool refunded)",
+    "function pending(address token, address account) view returns (uint256)",
+    "function dropBid(uint8 tierId) payable",
+    "function dropBidFor(uint8 tierId, address beneficiary) payable",
+    "function dropBidToken(uint8 tierId, address beneficiary, uint256 amount)",
+    "function finalizeRound(uint8 tierId)",
+    "function claim(address token)",
+    "event RoundStarted(uint8 indexed tierId, uint256 indexed roundId, uint256 initialPot, uint256 deadline)",
+    "event BidPlaced(uint8 indexed tierId, uint256 indexed roundId, address indexed bidder, uint256 amount, uint256 newPot, uint256 newDeadline)",
+    "event RoundFinalized(uint8 indexed tierId, uint256 indexed roundId, address indexed winner, uint256 winAmount, uint256 seedNextPot, uint256 protocolFee)",
+    "event RoundRefunded(uint8 indexed tierId, uint256 indexed roundId, address indexed bidder, uint256 refund, uint256 seedNextPot)"
+  ],
+  "rpcQuirks": [
+    "Receipts can have a null blockHash at preconfirmation. Poll eth_getTransactionReceipt yourself and do not rely on a library's wait().",
+    "eth_getLogs rejects block ranges larger than roughly 2000 blocks. Page through smaller ranges."
+  ],
+  "disclosures": [
+    "The operator runs a small testnet house bot that may bid in jars 0-2 to keep a lone player's round alive. Its activity is not organic play.",
+    "Testnet only. No uptime guarantee."
+  ],
+  "houseBotWallets": [
+    "0x87b5cC28c9a4c2A9b89A02D28e4dce8720781a36",
+    "0x16652447410105426069F7D2D0BC45f89A4C509E"
+  ],
+  "links": {
+    "site": "https://picklepots.xyz",
+    "repo": "https://github.com/PicklePots/picklepots",
+    "docs": "https://github.com/PicklePots/picklepots/blob/main/AGENTS.md",
+    "example": "https://github.com/PicklePots/picklepots/blob/main/examples/agent_bidder.js",
+    "x": "https://x.com/picklepotsxyz",
+    "contact": "hello@picklepots.xyz"
+  }
+}
