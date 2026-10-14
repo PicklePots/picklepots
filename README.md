@@ -6,6 +6,8 @@
 
 **Live app:** https://picklepots.xyz (reads rounds directly from Pickle Chain testnet)
 
+**X:** [@picklepotsxyz](https://x.com/picklepotsxyz) · **Contact:** hello@picklepots.xyz
+
 ## How it works
 
 Each tier runs its own independent round, timer and pot. Every bid makes you the King of the Jar and extends the timer (up to the tier's cap). When the timer runs out, the last bidder wins. If only one player entered the round, they are refunded in full.
