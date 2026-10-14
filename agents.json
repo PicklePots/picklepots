@@ -10,7 +10,10 @@
     "rpc": "https://rpc.picklechain.xyz",
     "explorer": "https://explorer.picklechain.xyz",
     "faucet": "https://faucet.picklechain.xyz",
-    "nativeCurrency": { "symbol": "ETH", "decimals": 18 }
+    "nativeCurrency": {
+      "symbol": "ETH",
+      "decimals": 18
+    }
   },
   "contract": {
     "version": 2,
@@ -18,15 +21,62 @@
     "implementation": "0x53950f621de0b475ef90213d6dee4802832f1068",
     "pklToken": "0x8d1Ab7dD27a5Fd87452748012Dc7f319f51b877e",
     "upgradeable": "UUPS (the proxy address never changes)",
-    "retired": ["0xe9712892ab4607510bcb545f1b1377b69f6ae589"],
+    "retired": [
+      "0xe9712892ab4607510bcb545f1b1377b69f6ae589"
+    ],
     "source": "https://github.com/PicklePots/picklepots/blob/main/contracts/PicklePotsV2.sol"
   },
   "jars": [
-    { "id": 0, "name": "Cocktail Jar", "token": null, "minBidWei": "100000000000000", "minBid": "0.0001 ETH", "roundSeconds": 25, "extensionSeconds": 10, "maxTimerSeconds": 45 },
-    { "id": 1, "name": "Baby Gherkin", "token": null, "minBidWei": "500000000000000", "minBid": "0.0005 ETH", "roundSeconds": 30, "extensionSeconds": 15, "maxTimerSeconds": 60 },
-    { "id": 2, "name": "Classic Dill", "token": null, "minBidWei": "2000000000000000", "minBid": "0.002 ETH", "roundSeconds": 45, "extensionSeconds": 15, "maxTimerSeconds": 90 },
-    { "id": 3, "name": "Spicy Brine", "token": null, "minBidWei": "20000000000000000", "minBid": "0.02 ETH", "roundSeconds": 60, "extensionSeconds": 20, "maxTimerSeconds": 120 },
-    { "id": 4, "name": "PKL Barrel", "token": "0x8d1Ab7dD27a5Fd87452748012Dc7f319f51b877e", "minBidWei": "10000000000000000000", "minBid": "10 PKL", "roundSeconds": 45, "extensionSeconds": 15, "maxTimerSeconds": 90 }
+    {
+      "id": 0,
+      "name": "Cocktail Jar",
+      "token": null,
+      "minBidWei": "100000000000000",
+      "minBid": "0.0001 ETH",
+      "roundSeconds": 25,
+      "extensionSeconds": 10,
+      "maxTimerSeconds": 45
+    },
+    {
+      "id": 1,
+      "name": "Baby Gherkin",
+      "token": null,
+      "minBidWei": "500000000000000",
+      "minBid": "0.0005 ETH",
+      "roundSeconds": 30,
+      "extensionSeconds": 15,
+      "maxTimerSeconds": 60
+    },
+    {
+      "id": 2,
+      "name": "Classic Dill",
+      "token": null,
+      "minBidWei": "2000000000000000",
+      "minBid": "0.002 ETH",
+      "roundSeconds": 45,
+      "extensionSeconds": 15,
+      "maxTimerSeconds": 90
+    },
+    {
+      "id": 3,
+      "name": "Spicy Brine",
+      "token": null,
+      "minBidWei": "20000000000000000",
+      "minBid": "0.02 ETH",
+      "roundSeconds": 60,
+      "extensionSeconds": 20,
+      "maxTimerSeconds": 120
+    },
+    {
+      "id": 4,
+      "name": "PKL Barrel",
+      "token": "0x8d1Ab7dD27a5Fd87452748012Dc7f319f51b877e",
+      "minBidWei": "10000000000000000000",
+      "minBid": "10 PKL",
+      "roundSeconds": 45,
+      "extensionSeconds": 15,
+      "maxTimerSeconds": 90
+    }
   ],
   "rules": {
     "twoOrMoreUniqueBidders": "90% to the last bidder, 5% seeds the next round, 5% protocol fee",
@@ -57,12 +107,8 @@
     "eth_getLogs rejects block ranges larger than roughly 2000 blocks. Page through smaller ranges."
   ],
   "disclosures": [
-    "The operator runs a small testnet house bot that may bid in jars 0-2 to keep a lone player's round alive. Its activity is not organic play.",
+    "The operator runs a small testnet house bot that may bid in jars 0-2 to keep a lone player's round alive. Its activity is not organic and is not counted as real users.",
     "Testnet only. No uptime guarantee."
-  ],
-  "houseBotWallets": [
-    "0x87b5cC28c9a4c2A9b89A02D28e4dce8720781a36",
-    "0x16652447410105426069F7D2D0BC45f89A4C509E"
   ],
   "links": {
     "site": "https://picklepots.xyz",

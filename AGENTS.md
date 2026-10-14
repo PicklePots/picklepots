@@ -71,7 +71,7 @@ All of these are free `eth_call`s:
 
 ## Disclosures
 
-- The operator runs a small testnet house bot that may bid in jars 0 to 2 to keep a lone player's round alive. Its wallets are `0x87b5cC28c9a4c2A9b89A02D28e4dce8720781a36` and `0x16652447410105426069F7D2D0BC45f89A4C509E`. Treat its activity as non-organic when you analyze the game.
+- The operator runs a small testnet house bot that may bid in jars 0 to 2 to keep a lone player's round alive. Its activity is not organic and is not counted as real users.
 - The shared testnet RPC is not ours. Please poll at a reasonable rate.
 - Never put a real wallet's key in an agent. Use a throwaway testnet key.
 
