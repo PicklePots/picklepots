@@ -14,13 +14,13 @@
 
 Each tier runs its own independent round, timer and pot. Every bid makes you the King of the Jar and extends the timer (up to the tier's cap). When the timer runs out, the last bidder wins. If only one player entered the round, they are refunded in full.
 
-| Tier | Name | Min bid | Round | Extension per bid | Max timer |
+| Tier | Name | Min bid | Opening timer | Clock reset after each bid | Max timer |
 |------|------|---------|-------|-------------------|-----------|
-| 0 | Cocktail Jar | 0.0001 ETH (~$0.25) | 25s | +10s | 45s |
-| 1 | Baby Gherkin | 0.0005 ETH (~$1.25) | 30s | +15s | 60s |
-| 2 | Classic Dill | 0.002 ETH (~$5.00) | 45s | +15s | 90s |
-| 3 | Spicy Brine | 0.02 ETH (~$50.00) | 60s | +20s | 120s |
-| 4 | PKL Barrel | 10 PKL (testnet token) | 45s | +15s | 90s |
+| 0 | Cocktail Jar | 0.0001 ETH (~$0.25) | 35s | 25s | 35s |
+| 1 | Baby Gherkin | 0.0005 ETH (~$1.25) | 40s | 30s | 40s |
+| 2 | Classic Dill | 0.002 ETH (~$5.00) | 50s | 35s | 50s |
+| 3 | Spicy Brine | 0.02 ETH (~$50.00) | 60s | 40s | 60s |
+| 4 | PKL Barrel | 10 PKL (testnet token) | 50s | 35s | 50s |
 
 ### Pot distribution (per round)
 
@@ -69,7 +69,7 @@ curl https://rpc.picklechain.xyz \
 ## Deployed contract
 
 - **PicklePots v2 (proxy, use this address):** `0x720fb1562e50bbe3530b973ecf1e26379ec60818`
-- **Implementation:** `0x53950f621de0b475ef90213d6dee4802832f1068`
+- **Implementation:** `0x9648fc8fb6bc796542c6cbcd3e020e4ca149bb50` (PicklePotsV3: owner-tunable jar timers; previous: `0x53950f621de0b475ef90213d6dee4802832f1068`)
 - **Owner / protocol fee recipient:** `0x903d2AD79bBa6BB121FdF2102cA80469C6b735eb`
 - **PKL token (testnet):** `0x8d1Ab7dD27a5Fd87452748012Dc7f319f51b877e`
 

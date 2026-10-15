@@ -902,7 +902,7 @@
           
           <div style="display:flex; justify-content:space-between; margin-top:0.6rem; font-size:0.75rem; color:#64748b;">
             <span><span id="balLabel">Wallet</span>: <b id="userBalanceText" style="color:var(--text-main);">0.000 ETH</b></span>
-            <span id="tierPaceLabel">Each bid adds +10s to timer (max 45s)</span>
+            <span id="tierPaceLabel">Every bid resets the clock to 25s</span>
           </div>
         </div>
       </div>
@@ -949,11 +949,11 @@
     const pad32 = (hex) => hex.replace(/^0x/, "").toLowerCase().padStart(64, "0");
 
     const TIERS = [
-      { id: 0, unit: "ETH", name: "Cocktail Jar 🍸", emoji: "🍸", minBid: 0.0001, pace: "Each bid adds +10s (max 45s)", presets: [0.0001, 0.0002, 0.0005, 0.001], defaultTimer: 25000, maxTimer: 45000 },
-      { id: 1, unit: "ETH", name: "Baby Gherkin 🥒", emoji: "🥒", minBid: 0.0005, pace: "Each bid adds +15s (max 60s)", presets: [0.0005, 0.001, 0.002, 0.005], defaultTimer: 30000, maxTimer: 60000 },
-      { id: 2, unit: "ETH", name: "Classic Dill 🫙", emoji: "🫙", minBid: 0.002, pace: "Each bid adds +15s (max 90s)", presets: [0.002, 0.005, 0.01, 0.02], defaultTimer: 45000, maxTimer: 90000 },
-      { id: 3, unit: "ETH", name: "Spicy Brine 🌶️", emoji: "🌶️", minBid: 0.02, pace: "Each bid adds +20s (max 120s)", presets: [0.02, 0.05, 0.10, 0.25], defaultTimer: 60000, maxTimer: 120000 },
-      { id: 4, unit: "PKL", token: PKL_TOKEN, name: "PKL Barrel 🛢️", emoji: "🛢️", minBid: 10, pace: "Each bid adds +15s (max 90s)", presets: [10, 25, 50, 100], defaultTimer: 45000, maxTimer: 90000 }
+      { id: 0, unit: "ETH", name: "Cocktail Jar 🍸", emoji: "🍸", minBid: 0.0001, pace: "Every bid resets the clock to 25s", presets: [0.0001, 0.0002, 0.0005, 0.001], defaultTimer: 35000, maxTimer: 35000 },
+      { id: 1, unit: "ETH", name: "Baby Gherkin 🥒", emoji: "🥒", minBid: 0.0005, pace: "Every bid resets the clock to 30s", presets: [0.0005, 0.001, 0.002, 0.005], defaultTimer: 40000, maxTimer: 40000 },
+      { id: 2, unit: "ETH", name: "Classic Dill 🫙", emoji: "🫙", minBid: 0.002, pace: "Every bid resets the clock to 35s", presets: [0.002, 0.005, 0.01, 0.02], defaultTimer: 50000, maxTimer: 50000 },
+      { id: 3, unit: "ETH", name: "Spicy Brine 🌶️", emoji: "🌶️", minBid: 0.02, pace: "Every bid resets the clock to 40s", presets: [0.02, 0.05, 0.10, 0.25], defaultTimer: 60000, maxTimer: 60000 },
+      { id: 4, unit: "PKL", token: PKL_TOKEN, name: "PKL Barrel 🛢️", emoji: "🛢️", minBid: 10, pace: "Every bid resets the clock to 35s", presets: [10, 25, 50, 100], defaultTimer: 50000, maxTimer: 50000 }
     ];
 
     let currentTier = 0;

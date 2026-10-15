@@ -18,7 +18,7 @@
   "contract": {
     "version": 2,
     "proxy": "0x720fb1562e50bbe3530b973ecf1e26379ec60818",
-    "implementation": "0x53950f621de0b475ef90213d6dee4802832f1068",
+    "implementation": "0x9648fc8fb6bc796542c6cbcd3e020e4ca149bb50",
     "pklToken": "0x8d1Ab7dD27a5Fd87452748012Dc7f319f51b877e",
     "upgradeable": "UUPS (the proxy address never changes)",
     "retired": [
@@ -33,9 +33,9 @@
       "token": null,
       "minBidWei": "100000000000000",
       "minBid": "0.0001 ETH",
-      "roundSeconds": 25,
-      "extensionSeconds": 10,
-      "maxTimerSeconds": 45
+      "roundSeconds": 35,
+      "extensionSeconds": 25,
+      "maxTimerSeconds": 35
     },
     {
       "id": 1,
@@ -43,9 +43,9 @@
       "token": null,
       "minBidWei": "500000000000000",
       "minBid": "0.0005 ETH",
-      "roundSeconds": 30,
-      "extensionSeconds": 15,
-      "maxTimerSeconds": 60
+      "roundSeconds": 40,
+      "extensionSeconds": 30,
+      "maxTimerSeconds": 40
     },
     {
       "id": 2,
@@ -53,9 +53,9 @@
       "token": null,
       "minBidWei": "2000000000000000",
       "minBid": "0.002 ETH",
-      "roundSeconds": 45,
-      "extensionSeconds": 15,
-      "maxTimerSeconds": 90
+      "roundSeconds": 50,
+      "extensionSeconds": 35,
+      "maxTimerSeconds": 50
     },
     {
       "id": 3,
@@ -64,8 +64,8 @@
       "minBidWei": "20000000000000000",
       "minBid": "0.02 ETH",
       "roundSeconds": 60,
-      "extensionSeconds": 20,
-      "maxTimerSeconds": 120
+      "extensionSeconds": 40,
+      "maxTimerSeconds": 60
     },
     {
       "id": 4,
@@ -73,9 +73,9 @@
       "token": "0x8d1Ab7dD27a5Fd87452748012Dc7f319f51b877e",
       "minBidWei": "10000000000000000000",
       "minBid": "10 PKL",
-      "roundSeconds": 45,
-      "extensionSeconds": 15,
-      "maxTimerSeconds": 90
+      "roundSeconds": 50,
+      "extensionSeconds": 35,
+      "maxTimerSeconds": 50
     }
   ],
   "rules": {
