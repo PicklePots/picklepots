@@ -1,18 +1,25 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>PicklePots owner: add jar</title>
+<meta name="robots" content="noindex,nofollow"><title>PicklePots owner: fix timers</title>
 <style>body{font-family:system-ui,sans-serif;background:#0b1a10;color:#e8f5e9;margin:0;padding:20px;max-width:560px;margin:auto}
 button{background:#7cb342;color:#0b1a10;border:0;border-radius:10px;padding:14px 18px;font-size:1rem;font-weight:700;width:100%;margin:8px 0}
-code{word-break:break-all;font-size:.8rem}#log{white-space:pre-wrap;background:#12261a;border-radius:10px;padding:12px;margin-top:12px;font-size:.85rem}</style></head>
+table{width:100%;border-collapse:collapse;margin:10px 0}td,th{border-bottom:1px solid #2a4a33;padding:6px;text-align:left;font-size:.9rem}
+#log{white-space:pre-wrap;background:#12261a;border-radius:10px;padding:12px;margin-top:12px;font-size:.85rem}</style></head>
 <body>
-<h2>Add "Pickle Starter" jar (owner only)</h2>
-<p>Adds a new ETH jar: min bid 0.0001 ETH, opening timer 35s, resets to 25s after every bid.
-Only the contract owner wallet can do this; anyone else's transaction is rejected. Use Rabby (open this page in Rabby's browser).</p>
-<button id="go">1) Connect and add jar</button>
+<h2>Fix the jar timers (owner only)</h2>
+<p>One transaction upgrades the live PicklePots contract (same address, all pots and rounds kept) and sets longer timers so players have time to approve a counter-bid. Only the owner wallet can do this; any other wallet is rejected.</p>
+<table><tr><th>Jar</th><th>Opening</th><th>Reset after each bid</th></tr>
+<tr><td>Cocktail Jar</td><td>35s</td><td>25s (was 10s)</td></tr>
+<tr><td>Baby Gherkin</td><td>40s</td><td>30s (was 15s)</td></tr>
+<tr><td>Classic Dill</td><td>50s</td><td>35s (was 15s)</td></tr>
+<tr><td>Spicy Brine</td><td>60s</td><td>40s (was 20s)</td></tr>
+<tr><td>PKL Barrel</td><td>50s</td><td>35s (was 15s)</td></tr></table>
+<p>Open this page in Rabby's browser with the owner wallet selected.</p>
+<button id="go">Connect and upgrade</button>
 <div id="log">Not connected.</div>
 <script>
 const C="0x720fb1562e50bbe3530b973ecf1e26379ec60818", OWNER="0x903d2ad79bba6bb121fdf2102ca80469c6b735eb";
-const DATA="0xf3bc4edd000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000005af3107a400000000000000000000000000000000000000000000000000000000000000000230000000000000000000000000000000000000000000000000000000000000019000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e5069636b6c652053746172746572000000000000000000000000000000000000";
+const DATA="0x4f1ef2860000000000000000000000009648fc8fb6bc796542c6cbcd3e020e4ca149bb500000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000438e454b100000000000000000000000000000000000000000000000000000000";
 const log=m=>document.getElementById("log").textContent=m;
 document.getElementById("go").onclick=async()=>{
   try{
@@ -23,7 +30,7 @@ document.getElementById("go").onclick=async()=>{
     try{await eth.request({method:"eth_call",params:[{from:acct,to:C,data:DATA},"latest"]});}catch(e){return log("Pre-check failed, not sending:\n"+(e.message||e));}
     log("Confirm the transaction in Rabby...");
     const h=await eth.request({method:"eth_sendTransaction",params:[{from:acct,to:C,data:DATA}]});
-    log("Sent!\n"+h+"\nhttps://explorer.picklechain.xyz/tx/"+h+"\nTell Claude it's done so the site and bot can start using the new jar.");
+    log("Sent!\n"+h+"\nhttps://explorer.picklechain.xyz/tx/"+h+"\nTell Claude it's done.");
   }catch(e){log("Error: "+(e.message||e));}
 };
 </script></body></html>
